@@ -641,7 +641,7 @@ impl<'a> TryFrom<&'a (DataType, BinaryOp, DataType)> for DataType {
             (DataType::Float, BinaryOp::Equal | BinaryOp::NotEqual, DataType::Float) => Ok(DataType::Bool),
             (DataType::String, BinaryOp::Equal | BinaryOp::NotEqual, DataType::String) => Ok(DataType::Bool),
             (DataType::Bool, BinaryOp::Equal | BinaryOp::NotEqual, DataType::Bool) => Ok(DataType::Bool),
-            (DataType::Instance(_), BinaryOp::Equal | BinaryOp::NotEqual, DataType::Instance(_)) => Ok(DataType::Bool),
+            (DataType::Instance(a), BinaryOp::Equal | BinaryOp::NotEqual, DataType::Instance(b)) if a == b => Ok(DataType::Bool),
 
             (DataType::Null, BinaryOp::Equal | BinaryOp::NotEqual, _) => Ok(DataType::Bool),
             (_, BinaryOp::Equal | BinaryOp::NotEqual, DataType::Null) => Ok(DataType::Bool),
