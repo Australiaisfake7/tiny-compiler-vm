@@ -19,7 +19,8 @@ enum FlattenError {
     UndeclaredVariable(String), UndeclaredFunction(String), UndeclaredClass(String), InvalidFunctionCallee(Box<Expression>), ContinueOutsideLoop, BreakOutsideLoop,
     Shadowing(String), FunctionDeclarationInsideScope(String), ClassDeclarationInsideScope(String), UnexpectedClassMember(Statement), UnexpectedOverride(String),
     UndeclaredClassVar(String),
-    UnexpectedBinaryOpOpCode(OpCode), UnexpectedBinaryOpOperands { left: DataType, operator: BinaryOp, right: DataType }, UnexpectedParameterCount { callee: Box<Expression>, expected: usize, recieved: usize },
+    UnexpectedBinaryOpOpCode(OpCode), UnexpectedBinaryOpOperands { left: DataType, operator: BinaryOp, right: DataType }, UnexpectedUnaryOpOperands { operator: UnaryOp, operand: DataType },
+    UnexpectedParameterCount { callee: Box<Expression>, expected: usize, recieved: usize },
     ExpressionIsNotClass(Box<Expression>), StaticOutsideClass(String), UnexpectedParameterType { callee: Box<Expression>, expected: DataType, recieved: DataType, index: usize },
     UnexpectedDeclarationValueType { variable: String, expected: DataType, recieved: DataType }, UnexpectedAssignmentValueType { variable: String, expected: DataType, recieved: DataType, },
     UnexpectedReturnValueType { func: String, expected: DataType, recieved: DataType }, ReturnOutsideFunction,
@@ -505,8 +506,18 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
 }
 
 fn flatten_unary(operator: &UnaryOp, right: &Box<Expression>, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, Option<DataType>, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
-    let d: DataType = flatten_expression(right, opcodes, global_vars, vars, funcs, classes)?;
-    
+    let operand_type: DataType = flatten_expression(right, opcodes, global_vars, vars, funcs, classes)?;
+
+    let d: DataType = match (operator, &operand_type) {
+        (UnaryOp::LNot, DataType::Bool) => DataType::Bool,
+        (UnaryOp::Negate, DataType::Int) => DataType::Int,
+        (UnaryOp::Negate, DataType::Float) => DataType::Float,
+        _ => return Err(FlattenError::UnexpectedUnaryOpOperands {
+            operator: operator.clone(),
+            operand: operand_type,
+        }),
+    };
+
     opcodes.push(match operator {
         UnaryOp::LNot => OpCode::LNot,
         UnaryOp::Negate => OpCode::Negate,
