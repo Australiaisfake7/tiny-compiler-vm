@@ -678,7 +678,8 @@ impl<'a> TryFrom<&'a OpCode> for BinaryOp {
 fn is_compatible(expected: &DataType, received: &DataType, classes: &HashMap<String, ClassData>) -> bool {
     match (expected, received) {
         (DataType::Nullable(_), DataType::Null) => true,
-        (DataType::Nullable(inner), actual) if inner.as_ref() == actual => true,
+        (DataType::Nullable(a), DataType::Nullable(b)) => is_compatible(a, b, classes),
+        (DataType::Nullable(inner), actual) => is_compatible(inner, actual, classes),
         (DataType::Instance(p), DataType::Instance(c)) if is_subclass(c, p, classes) => true,
         (expected, received) => expected == received,
     }
