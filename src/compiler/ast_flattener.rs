@@ -73,12 +73,12 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 match expression {
                     Some(e) => {
                         let d: DataType = flatten_expression(e, opcodes, global_vars, vars, funcs, classes)?;
-                        if !is_compatible(&data.1.map(|d| d.clone()).unwrap_or(DataType::Null), &d) {
+                        if !is_compatible(&data.1.map(|d| d.clone()).unwrap_or(DataType::Null), &d, classes) {
                             return Err(FlattenError::UnexpectedReturnValueType { func: data.0.to_owned(), expected: data.1.map(|d| d.clone()).unwrap_or(DataType::Null), received: d });
                         }
                     },
                     None => {
-                        if !is_compatible(&data.1.map(|d| d.clone()).unwrap_or(DataType::Null), &DataType::Null) {
+                        if !is_compatible(&data.1.map(|d| d.clone()).unwrap_or(DataType::Null), &DataType::Null, classes) {
                             return Err(FlattenError::UnexpectedReturnValueType { func: data.0.to_owned(), expected: data.1.map(|d| d.clone()).unwrap_or(DataType::Null), received: DataType::Null });
                         }
                         
@@ -173,7 +173,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
 
             let d: DataType = flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
 
-            if !is_compatible(data_type, &d) {
+            if !is_compatible(data_type, &d, classes) {
                 return Err(FlattenError::UnexpectedDeclarationValueType { variable: name.clone(), expected: data_type.clone(), received: d });
             }
 
@@ -325,7 +325,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                     opcodes.push(match vars.iter().rposition(|(s, _)| s == i) {
                         Some(index) => {
                             let d: &DataType = &vars.get(index).unwrap().1;
-                            if !is_compatible(d, &value_type) {
+                            if !is_compatible(d, &value_type, classes) {
                                 return Err(FlattenError::UnexpectedAssignmentValueType { variable: i.clone(), expected: d.clone(), received: value_type });
                             }
                             OpCode::SetVar(index)
@@ -333,7 +333,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                         None => match global_vars.iter().rposition(|(s, _)| s == i) {
                             Some(index) => {
                                 let d: &DataType = &global_vars.get(index).unwrap().1;
-                                if !is_compatible(d, &value_type) {
+                                if !is_compatible(d, &value_type, classes) {
                                     return Err(FlattenError::UnexpectedAssignmentValueType { variable: i.clone(), expected: d.clone(), received: value_type });
                                 }
                                 OpCode::SetGlobal(index)
@@ -349,7 +349,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                             if let Some(index) = global_vars.iter().position(|(s, _)| s == &format!("{}.{}", name, member)) {
                                 let d: DataType = flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
 
-                                if !is_compatible(&global_vars.get(index).unwrap().1, &d) {
+                                if !is_compatible(&global_vars.get(index).unwrap().1, &d, classes) {
                                     return Err(FlattenError::UnexpectedAssignmentValueType { variable: format!("{}.{}", name, member), expected: global_vars.get(index).unwrap().1.clone(), received: d });
                                 }
 
@@ -368,7 +368,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                             if let Some(index) = class_data.vars.iter().position(|(s, _)| s == member) {
                                 let d: DataType = flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
 
-                                if !is_compatible(&class_data.vars.get(index).unwrap().1, &d) {
+                                if !is_compatible(&class_data.vars.get(index).unwrap().1, &d, classes) {
                                     return Err(FlattenError::UnexpectedAssignmentValueType { variable: format!("{}.{}", name, member), expected: class_data.vars.get(index).unwrap().1.clone(), received: d });
                                 }
 
@@ -395,7 +395,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                         for (i, parameter) in parameters.iter().enumerate() {
                             let d: DataType = flatten_expression(parameter, opcodes, global_vars, vars, funcs, classes)?;
                             let expected = f.2.get(i).unwrap();
-                            if !is_compatible(expected, &d) {
+                            if !is_compatible(expected, &d, classes) {
                                 return Err(FlattenError::UnexpectedParameterType { callee: callee.clone(), expected: expected.clone(), received: d, index: i });
                             }
                         }
@@ -426,7 +426,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                                 for (i, parameter) in parameters.iter().enumerate() {
                                     let d: DataType = flatten_expression(parameter, opcodes, global_vars, vars, funcs, classes)?;
                                     let expected = p.get(i).unwrap();
-                                    if !is_compatible(expected, &d) {
+                                    if !is_compatible(expected, &d, classes) {
                                         return Err(FlattenError::UnexpectedParameterType { callee: callee.clone(), expected: expected.clone(), received: d, index: i });
                                     }
                                 }
@@ -448,7 +448,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                                 for (i, parameter) in parameters.iter().enumerate() {
                                     let d: DataType = flatten_expression(parameter, opcodes, global_vars, vars, funcs, classes)?;
                                     let expected = p.get(i).unwrap();
-                                    if !is_compatible(expected, &d) {
+                                    if !is_compatible(expected, &d, classes) {
                                         return Err(FlattenError::UnexpectedParameterType { callee: callee.clone(), expected: expected.clone(), received: d, index: i });
                                     }
                                 }
@@ -675,10 +675,28 @@ impl<'a> TryFrom<&'a OpCode> for BinaryOp {
     }
 }
 
-fn is_compatible(expected: &DataType, received: &DataType) -> bool {
+fn is_compatible(expected: &DataType, received: &DataType, classes: &HashMap<String, ClassData>) -> bool {
     match (expected, received) {
         (DataType::Nullable(_), DataType::Null) => true,
         (DataType::Nullable(inner), actual) if inner.as_ref() == actual => true,
+        (DataType::Instance(p), DataType::Instance(c)) if is_subclass(c, p, classes) => true,
         (expected, received) => expected == received,
     }
+}
+
+fn is_subclass(child: &str, parent: &str, classes: &HashMap<String, ClassData>) -> bool {
+    let mut class: &str = child;
+
+    while class != parent {
+        if let Some(c) = classes.get(class) {
+            if let Some(ref p) = c.parent {
+                class = p;
+                continue;
+            }
+        }
+
+        return false;
+    }
+
+    true
 }
