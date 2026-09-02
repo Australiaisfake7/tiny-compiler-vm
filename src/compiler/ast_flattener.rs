@@ -34,6 +34,10 @@ struct ClassData {
 fn flatten_statements(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, Option<DataType>, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, func_data: Option<(&str, Option<&DataType>)>) -> Result<(), FlattenError> {
     for statement in statements {
         flatten_statement(statement, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data)?;
+
+        if matches!(statement, Statement::Break | Statement::Continue | Statement::Return(_)) {
+            break;
+        }
     }
 
     Ok(())
