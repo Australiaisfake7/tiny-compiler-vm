@@ -560,12 +560,22 @@ fn normal_binary(left: &Box<Expression>, right: &Box<Expression>, opcode: OpCode
 }
 
 fn short_circuit_binary(left: &Box<Expression>, right: &Box<Expression>, jump_on: bool, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, Option<DataType>, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
-    flatten_expression(left, opcodes, global_vars, vars, funcs, classes)?;
+    let l: DataType = flatten_expression(left, opcodes, global_vars, vars, funcs, classes)?;
+
+    if l != DataType::Bool {
+        return Err(FlattenError::UnexpectedBinaryOpOperands { left: l, operator: if jump_on { BinaryOp::LOr } else { BinaryOp::LAnd }, right: DataType::Bool });
+    }
 
     let start_index: usize = opcodes.len();
     opcodes.push(if jump_on { OpCode::JumpIfTrue { index: 0, pop: false } } else { OpCode::JumpIfFalse { index: 0, pop: false } });
     opcodes.push(OpCode::Pop(1));
-    flatten_expression(right, opcodes, global_vars, vars, funcs, classes)?;
+    
+    let r: DataType = flatten_expression(right, opcodes, global_vars, vars, funcs, classes)?;
+
+    if r != DataType::Bool {
+        return Err(FlattenError::UnexpectedBinaryOpOperands { left: l, operator: if jump_on { BinaryOp::LOr } else { BinaryOp::LAnd }, right: r });
+    }
+
     *opcodes.get_mut(start_index).unwrap() = if jump_on { OpCode::JumpIfTrue { index: opcodes.len(), pop: false } } else { OpCode::JumpIfFalse { index: opcodes.len(), pop: false } };
 
     Ok(DataType::Bool)
