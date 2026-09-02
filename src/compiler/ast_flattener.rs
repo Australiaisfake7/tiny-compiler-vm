@@ -552,10 +552,11 @@ fn flatten_binary(left: &Box<Expression>, operator: &BinaryOp, right: &Box<Expre
 fn normal_binary(left: &Box<Expression>, right: &Box<Expression>, opcode: OpCode, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, Option<DataType>, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
     let l: DataType = flatten_expression(left, opcodes, global_vars, vars, funcs, classes)?;
     let r: DataType = flatten_expression(right, opcodes, global_vars, vars, funcs, classes)?;
-    let o: &OpCode = &opcode.clone();
-    opcodes.push(opcode);
+    opcodes.push(opcode.clone());
 
-    Ok(DataType::try_from(&(l, BinaryOp::try_from(o).map_err(|ec| FlattenError::UnexpectedBinaryOpOpCode(ec.clone()))?, r)).map_err(|(left, operator, right)| FlattenError::UnexpectedBinaryOpOperands { left: left.clone(), operator: operator.clone(), right: right.clone() })?)
+    let operator: BinaryOp = BinaryOp::try_from(&opcode).map_err(|op| FlattenError::UnexpectedBinaryOpOpCode(op.clone()))?;
+
+    get_binary_type(&l, &operator, &r, classes).map_err(|_| FlattenError::UnexpectedBinaryOpOperands { left: l, operator, right: r })
 }
 
 fn short_circuit_binary(left: &Box<Expression>, right: &Box<Expression>, jump_on: bool, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, Option<DataType>, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
@@ -613,48 +614,6 @@ impl<'a> TryFrom<&'a LiteralType> for DataType {
     }
 }
 
-impl<'a> TryFrom<&'a (DataType, BinaryOp, DataType)> for DataType {
-    type Error = &'a (DataType, BinaryOp, DataType);
-
-    fn try_from(value: &'a (DataType, BinaryOp, DataType)) -> Result<Self, Self::Error> {
-        match value {
-            (DataType::Int, BinaryOp::Add, DataType::Int) => Ok(DataType::Int),
-            (DataType::Int, BinaryOp::Subtract, DataType::Int) => Ok(DataType::Int),
-            (DataType::Int, BinaryOp::Multiply, DataType::Int) => Ok(DataType::Int),
-            (DataType::Int, BinaryOp::Divide, DataType::Int) => Ok(DataType::Int),
-
-            (DataType::Float, BinaryOp::Add, DataType::Float) => Ok(DataType::Float),
-            (DataType::Float, BinaryOp::Subtract, DataType::Float) => Ok(DataType::Float),
-            (DataType::Float, BinaryOp::Multiply, DataType::Float) => Ok(DataType::Float),
-            (DataType::Float, BinaryOp::Divide, DataType::Float) => Ok(DataType::Float),
-
-            (DataType::String, BinaryOp::Add, DataType::String) => Ok(DataType::String),
-
-            (DataType::Bool, BinaryOp::LAnd, DataType::Bool) => Ok(DataType::Bool),
-            (DataType::Bool, BinaryOp::LOr, DataType::Bool) => Ok(DataType::Bool),
-
-            (DataType::Int, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::Int) => Ok(DataType::Bool),
-            (DataType::Float, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::Float) => Ok(DataType::Bool),
-            (DataType::String, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::String) => Ok(DataType::Bool),
-
-            (DataType::Int, BinaryOp::Equal | BinaryOp::NotEqual, DataType::Int) => Ok(DataType::Bool),
-            (DataType::Float, BinaryOp::Equal | BinaryOp::NotEqual, DataType::Float) => Ok(DataType::Bool),
-            (DataType::String, BinaryOp::Equal | BinaryOp::NotEqual, DataType::String) => Ok(DataType::Bool),
-            (DataType::Bool, BinaryOp::Equal | BinaryOp::NotEqual, DataType::Bool) => Ok(DataType::Bool),
-            (DataType::Instance(a), BinaryOp::Equal | BinaryOp::NotEqual, DataType::Instance(b)) if a == b => Ok(DataType::Bool),
-
-            (DataType::Null, BinaryOp::Equal | BinaryOp::NotEqual, _) => Ok(DataType::Bool),
-            (_, BinaryOp::Equal | BinaryOp::NotEqual, DataType::Null) => Ok(DataType::Bool),
-
-            (DataType::Nullable(inner1), BinaryOp::Equal | BinaryOp::NotEqual, DataType::Nullable(inner2)) if inner1 == inner2 => Ok(DataType::Bool),
-            (DataType::Nullable(inner), BinaryOp::Equal | BinaryOp::NotEqual, other) if inner.as_ref() == other => Ok(DataType::Bool),
-            (other, BinaryOp::Equal | BinaryOp::NotEqual, DataType::Nullable(inner)) if inner.as_ref() == other => Ok(DataType::Bool),
-
-            _ => Err(value),
-        }
-    }
-}
-
 impl<'a> TryFrom<&'a OpCode> for BinaryOp {
     type Error = &'a OpCode;
 
@@ -700,4 +659,22 @@ fn is_subclass(child: &str, parent: &str, classes: &HashMap<String, ClassData>) 
     }
 
     true
+}
+
+fn get_binary_type(left: &DataType, operator: &BinaryOp, right: &DataType, classes: &HashMap<String, ClassData>) -> Result<DataType, ()> {
+    match (left, operator, right) {
+        (DataType::Int, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide, DataType::Int) => Ok(DataType::Int),
+        (DataType::Float, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide, DataType::Float) => Ok(DataType::Float),
+        (DataType::String, BinaryOp::Add, DataType::String) => Ok(DataType::String),
+
+        (DataType::Bool, BinaryOp::LAnd | BinaryOp::LOr, DataType::Bool) => Ok(DataType::Bool),
+
+        (DataType::Int, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::Int) => Ok(DataType::Bool),
+        (DataType::Float, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::Float) => Ok(DataType::Bool),
+        (DataType::String, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::String) => Ok(DataType::Bool),
+
+        (l, BinaryOp::Equal | BinaryOp::NotEqual, r) if is_compatible(l, r, classes) || is_compatible(r, l, classes) => Ok(DataType::Bool),
+
+        _ => Err(()),
+    }
 }
