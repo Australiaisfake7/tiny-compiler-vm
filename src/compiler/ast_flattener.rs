@@ -181,7 +181,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             if *is_static {
                 return Err(FlattenError::StaticOutsideClass(name.clone()));
             }
-            if depth == 0 && global_vars.iter().any(|(s, _)| s == name) || depth != 0 && vars.iter().any(|(s, d)| s == name) {
+            if depth == 0 && global_vars.iter().any(|(s, _)| s == name) || depth != 0 && vars.iter().any(|(s, d)| s == name) || funcs.contains_key(name) || classes.contains_key(name) {
                 return Err(FlattenError::Shadowing(name.clone()));
             }
 
@@ -206,7 +206,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             if depth != 0 {
                 return Err(FlattenError::FunctionDeclarationInsideScope(name.to_owned()))
             }
-            if funcs.contains_key(name) {
+            if funcs.contains_key(name) || global_vars.iter().any(|(s, _)| s == name) || classes.contains_key(name) {
                 return Err(FlattenError::Shadowing(name.to_owned())); 
             }
             if *should_override {
@@ -221,14 +221,14 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             if depth != 0 {
                 return Err(FlattenError::ClassDeclarationInsideScope(name.clone()));
             }
-            if classes.contains_key(name) {
+            if classes.contains_key(name) || global_vars.iter().any(|(s, _)| s == name) || funcs.contains_key(name) {
                 return Err(FlattenError::Shadowing(name.clone()));
             }
 
             for member in block {
                 match member {
                     Statement::Declaration { name: var_name, value, data_type, is_static: true } => {
-                        if global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) {
+                        if global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) || funcs.contains_key(&format!("{}.{}", name, var_name)) {
                             return Err(FlattenError::Shadowing(var_name.clone()));
                         }
 
@@ -246,7 +246,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         if *should_override {
                             return Err(FlattenError::UnexpectedOverride(format!("{}.{}", name.clone(), func_name.clone())));
                         }
-                        if funcs.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) {
+                        if funcs.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) {
                             return Err(FlattenError::Shadowing(func_name.clone()));
                         }
 
@@ -291,7 +291,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             for member in block {
                 match member {
                     Statement::Declaration { name: var_name, value, data_type, is_static: false } => {
-                        if classes.get(name).unwrap().vars.iter().any(|(s, _d)| s == var_name) {
+                        if classes.get(name).unwrap().vars.iter().any(|(s, _d)| s == var_name) || classes.get(name).unwrap().funcs.contains_key(var_name) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) || funcs.contains_key(&format!("{}.{}", name, var_name)) {
                             return Err(FlattenError::Shadowing(var_name.clone()));
                         }
 
@@ -309,7 +309,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                     },
                     Statement::Function { name: func_name, data, should_override, is_static: false  } => {
                         let contains_func: bool = classes.get(name).unwrap().funcs.contains_key(func_name);
-                        if contains_func && (!*should_override || !classes.get(name).unwrap().funcs.get(func_name).unwrap().3) {
+                        if (contains_func && (!*should_override || !classes.get(name).unwrap().funcs.get(func_name).unwrap().3)) || classes.get(name).unwrap().vars.iter().any(|(s, _)| s == func_name) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) || funcs.contains_key(&format!("{}.{}", name, func_name)) {
                             return Err(FlattenError::Shadowing(func_name.clone()));
                         }
                         if *should_override && !contains_func {
@@ -628,7 +628,7 @@ fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, 
     }
 
     for (data_type, name) in &data.parameters {
-        if func_vars.iter().any(|(s, _)| s == name) {
+        if func_vars.iter().any(|(s, _)| s == name) || funcs.contains_key(name) || classes.contains_key(name) {
             return Err(FlattenError::Shadowing(name.clone()));
         }
         func_vars.push((name.clone(), data_type.clone()));
