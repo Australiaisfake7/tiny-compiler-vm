@@ -222,7 +222,12 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                             return Err(FlattenError::Shadowing(var_name.clone()));
                         }
 
-                        flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
+                        let d: DataType = flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
+
+                        if !is_compatible(data_type, &d, classes) {
+                            return Err(FlattenError::UnexpectedDeclarationValueType { variable: format!("{}.{}", name, var_name), expected: data_type.clone(), received: d });
+                        }
+
                         opcodes.push(OpCode::DefineGlobal);
 
                         global_vars.push((format!("{}.{}", name, var_name), data_type.clone()));
@@ -281,7 +286,12 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         }
 
                         opcodes.push(OpCode::GetVar(0));
-                        flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
+                        let d: DataType = flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
+
+                        if !is_compatible(data_type, &d, classes) {
+                            return Err(FlattenError::UnexpectedDeclarationValueType { variable: format!("{}.{}", name, var_name), expected: data_type.clone(), received: d });
+                        }
+
                         opcodes.push(OpCode::SetMember(classes.get(name).unwrap().vars.len()));
                         opcodes.push(OpCode::Pop(1));
 
@@ -300,10 +310,10 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, Some(name))?;
                         classes.get_mut(name).unwrap().funcs.insert(func_name.clone(), (index, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
                     },
-                    Statement::Declaration { name: var_name, value, data_type, is_static: true } => {
+                    Statement::Declaration { name: _, value: _, data_type: _, is_static: true } => {
                         continue
                     },
-                    Statement::Function { name: func_name, data, should_override, is_static: true  } => {
+                    Statement::Function { name: _, data: _, should_override: _, is_static: true  } => {
                         continue
                     },
                     statement => return Err(FlattenError::UnexpectedClassMember(statement.clone())),
