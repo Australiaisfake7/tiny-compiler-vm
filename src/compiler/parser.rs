@@ -42,7 +42,7 @@ pub struct VariableData {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionData {
-    pub data_type: Option<DataType>,
+    pub data_type: DataType,
     pub parameters: Vec<(DataType, String)>,
     pub block: Vec<Statement>,
 }
@@ -373,9 +373,9 @@ impl Parser {
     fn function(&mut self, is_static: bool) -> Result<Statement, ParseError> {
         let should_override: bool = self.match_advance(&[Token::Override]);
 
-        let data_type: Option<DataType> = match self.peek()?.clone() {
-            Token::DataType(d) => { self.advance()?; Some(d) },
-            Token::Identifier(_) => None,
+        let data_type: DataType = match self.peek()?.clone() {
+            Token::DataType(d) => { self.advance()?; d },
+            Token::Identifier(_) => DataType::Null,
             other => return Err(ParseError::UnexpectedToken { expected: "Function Name", got: other.clone() })
         };
 
