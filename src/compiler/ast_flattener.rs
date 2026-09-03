@@ -215,6 +215,34 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 return Err(FlattenError::Shadowing(name.clone()));
             }
 
+            for member in block {
+                match member {
+                    Statement::Declaration { name: var_name, value, data_type, is_static: true } => {
+                        if global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) {
+                            return Err(FlattenError::Shadowing(var_name.clone()));
+                        }
+
+                        flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
+                        opcodes.push(OpCode::DefineGlobal);
+
+                        global_vars.push((format!("{}.{}", name, var_name), data_type.clone()));
+                    },
+                    Statement::Function { name: func_name, data, should_override, is_static: true  } => {
+                        if *should_override {
+                            return Err(FlattenError::UnexpectedOverride(format!("{}.{}", name.clone(), func_name.clone())));
+                        }
+                        if funcs.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) {
+                            return Err(FlattenError::Shadowing(func_name.clone()));
+                        }
+
+                        let index: usize = opcodes.len() + 1;
+                        flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, None)?;
+                        funcs.insert(format!("{}.{}", name, func_name), (index, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect()));
+                    },
+                    _ => continue,
+                }
+            }
+
             let jump_index: usize = opcodes.len();
             let mut class: ClassData = ClassData { vars: Vec::new(), funcs: HashMap::new(), parent: parent.clone(), constructor: jump_index + 1 };
 
@@ -273,26 +301,10 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         classes.get_mut(name).unwrap().funcs.insert(func_name.clone(), (index, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
                     },
                     Statement::Declaration { name: var_name, value, data_type, is_static: true } => {
-                        if global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) {
-                            return Err(FlattenError::Shadowing(var_name.clone()));
-                        }
-
-                        flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
-                        opcodes.push(OpCode::DefineGlobal);
-
-                        global_vars.push((format!("{}.{}", name, var_name), data_type.clone()));
+                        continue
                     },
                     Statement::Function { name: func_name, data, should_override, is_static: true  } => {
-                        if *should_override {
-                            return Err(FlattenError::UnexpectedOverride(format!("{}.{}", name.clone(), func_name.clone())));
-                        }
-                        if funcs.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) {
-                            return Err(FlattenError::Shadowing(func_name.clone()));
-                        }
-
-                        let index: usize = opcodes.len() + 1;
-                        flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, None)?;
-                        funcs.insert(format!("{}.{}", name, func_name), (index, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect()));
+                        continue
                     },
                     statement => return Err(FlattenError::UnexpectedClassMember(statement.clone())),
                 }
