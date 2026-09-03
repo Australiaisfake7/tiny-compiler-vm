@@ -251,8 +251,8 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         }
 
                         let index: usize = opcodes.len() + 1;
-                        flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, None)?;
                         funcs.insert(format!("{}.{}", name, func_name), (index, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect()));
+                        flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, None)?;
                     },
                     _ => continue,
                 }
@@ -317,8 +317,8 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         }
 
                         let index: usize = opcodes.len() + 1;
-                        flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, Some(name))?;
                         classes.get_mut(name).unwrap().funcs.insert(func_name.clone(), (index, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
+                        flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, Some(name))?;
                     },
                     Statement::Declaration { name: _, value: _, data_type: _, is_static: true } => {
                         continue
