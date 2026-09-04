@@ -10,8 +10,9 @@ enum OpCode {
     JumpIfTrue { index: usize, pop: bool }, JumpIfFalse { index: usize, pop: bool }, Jump(usize),
     GetVar(usize), SetVar(usize),
     GetGlobal(usize), SetGlobal(usize), DefineGlobal,
-    Call { index: usize, parameters: usize }, Return, Print,
-    GetMember(usize), SetMember(usize), CallMember { member: String, parameters: usize },
+    Call { index: usize, parameters: usize }, CallVirtual { slot: usize, parameters: usize },
+    Return, Print,
+    GetMember(usize), SetMember(usize),
     NewStack, PopStack,
     NewInstance(String), 
 }
@@ -28,6 +29,7 @@ enum FlattenError {
 struct ClassData {
     vars: Vec<(String, DataType)>,
     funcs: HashMap<String, (usize, DataType, Vec<DataType>, bool)>,
+    vtable: Vec<usize>,
     parent: Option<String>,
     constructor: usize,
 }
@@ -260,23 +262,26 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             }
 
             let jump_index: usize = opcodes.len();
-            let mut class: ClassData = ClassData { vars: Vec::new(), funcs: HashMap::new(), parent: parent.clone(), constructor: jump_index + 1 };
+            classes.insert(name.clone(), ClassData { vars: Vec::new(), funcs: HashMap::new(), vtable: Vec::new(), parent: parent.clone(), constructor: opcodes.len() + 1 });
 
             if let Some(n) = parent {
-                if let Some(p) = classes.get(n) {
-                    class.vars = p.vars.clone();
-                    class.funcs = p.funcs.clone();
-
-                    for (_, (_, _, _, overridable)) in &mut class.funcs {
-                        *overridable = true;
+                let (parent_vars, parent_funcs, parent_vtable) = {
+                    if let Some(p) = classes.get(n) {
+                        (p.vars.clone(), p.funcs.clone(), p.vtable.clone())
+                    } else {
+                        return Err(FlattenError::UndeclaredClass(n.clone()));
                     }
-                }
-                else {
-                    return Err(FlattenError::UndeclaredClass(n.clone()));
-                }
-            }
+                };
+                
+                let class: &mut ClassData = classes.get_mut(name).unwrap();
+                class.vars = parent_vars;
+                class.funcs = parent_funcs;
+                class.vtable = parent_vtable;
 
-            classes.insert(name.clone(), class);
+                for (_, (_, _, _, overridable)) in &mut class.funcs {
+                    *overridable = true;
+                }
+            } 
 
             opcodes.push(OpCode::Jump(0));
             opcodes.push(OpCode::NewStack);
@@ -292,8 +297,11 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             for member in block {
                 match member {
                     Statement::Declaration { name: var_name, value, data_type, is_static: false } => {
-                        if classes.get(name).unwrap().vars.iter().any(|(s, _d)| s == var_name) || classes.get(name).unwrap().funcs.contains_key(var_name) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) || funcs.contains_key(&format!("{}.{}", name, var_name)) {
-                            return Err(FlattenError::Shadowing(var_name.clone()));
+                        {
+                            let class: &mut ClassData = classes.get_mut(name).unwrap();
+                            if class.vars.iter().any(|(s, _d)| s == var_name) || class.funcs.contains_key(var_name) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) || funcs.contains_key(&format!("{}.{}", name, var_name)) {
+                                return Err(FlattenError::Shadowing(var_name.clone()));
+                            }
                         }
 
                         opcodes.push(OpCode::GetVar(0));
@@ -303,22 +311,38 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                             return Err(FlattenError::UnexpectedDeclarationValueType { variable: format!("{}.{}", name, var_name), expected: data_type.clone(), received: d });
                         }
 
-                        opcodes.push(OpCode::SetMember(classes.get(name).unwrap().vars.len()));
-                        opcodes.push(OpCode::Pop(1));
+                        {
+                            let class: &mut ClassData = classes.get_mut(name).unwrap();
 
-                        classes.get_mut(name).unwrap().vars.push((var_name.clone(), data_type.clone()));
+                            opcodes.push(OpCode::SetMember(class.vars.len()));
+                            opcodes.push(OpCode::Pop(1));
+
+                            class.vars.push((var_name.clone(), data_type.clone()));
+                        }
                     },
                     Statement::Function { name: func_name, data, should_override, is_static: false  } => {
-                        let contains_func: bool = classes.get(name).unwrap().funcs.contains_key(func_name);
-                        if (contains_func && (!*should_override || !classes.get(name).unwrap().funcs.get(func_name).unwrap().3)) || classes.get(name).unwrap().vars.iter().any(|(s, _)| s == func_name) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) || funcs.contains_key(&format!("{}.{}", name, func_name)) {
-                            return Err(FlattenError::Shadowing(func_name.clone()));
-                        }
-                        if *should_override && !contains_func {
-                            return Err(FlattenError::UnexpectedOverride(func_name.clone()));
-                        }
+                        {
+                            let class: &mut ClassData = classes.get_mut(name).unwrap();
 
-                        let index: usize = opcodes.len() + 1;
-                        classes.get_mut(name).unwrap().funcs.insert(func_name.clone(), (index, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
+                            let override_slot: Option<usize> = class.funcs.get(func_name).map(|(slot, _, _, _)| *slot);
+                            if (override_slot.is_some() && (!*should_override || !class.funcs.get(func_name).unwrap().3)) || class.vars.iter().any(|(s, _)| s == func_name) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) || funcs.contains_key(&format!("{}.{}", name, func_name)) {
+                                return Err(FlattenError::Shadowing(func_name.clone()));
+                            }
+                            if *should_override && override_slot.is_none() {
+                                return Err(FlattenError::UnexpectedOverride(func_name.clone()));
+                            }
+
+                            let slot: usize = if let Some(slot) = override_slot {
+                                *class.vtable.get_mut(slot).unwrap() = opcodes.len() + 1;
+                                slot
+                            }
+                            else {
+                                class.vtable.push(opcodes.len() + 1);
+                                class.vtable.len() - 1
+                            };
+
+                            class.funcs.insert(func_name.clone(), (slot, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
+                        }
                         flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, Some(name))?;
                     },
                     Statement::Declaration { name: _, value: _, data_type: _, is_static: true } => {
@@ -477,7 +501,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
 
                     if let DataType::Instance(class_name) = class_type {
                         if let Some(class_data) = classes.get(&class_name) {
-                            if let Some((index, d, p, _)) = class_data.funcs.get(member) {
+                            if let Some((slot, d, p, _)) = class_data.funcs.get(member) {
                                 if parameters.len() != p.len() {
                                     return Err(FlattenError::UnexpectedParameterCount { callee: callee.clone(), expected: p.len(), received: parameters.len() });
                                 }
@@ -490,7 +514,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                                     }
                                 }
 
-                                opcodes.push(OpCode::Call { index: *index, parameters: parameters.len() + 1 });
+                                opcodes.push(OpCode::CallVirtual { slot: *slot, parameters: parameters.len() + 1 });
                                 return Ok(d.clone());
                             }
                         }
