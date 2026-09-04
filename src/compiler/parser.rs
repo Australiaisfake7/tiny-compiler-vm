@@ -81,7 +81,7 @@ pub enum Statement {
     IfElse { condition: Box<Expression>, block1: Vec<Statement>, block2: Vec<Statement> },
     Print(Box<Expression>),
     While { condition: Box<Expression>, block: Vec<Statement> },
-    For { initializer: Box<Statement>, condition: Box<Expression>, update: Box<Statement>, block: Vec<Statement> },
+    For { initializer: Box<Statement>, condition: Box<Expression>, update: Box<Expression>, block: Vec<Statement> },
     Function { name: String, data: FunctionData, should_override: bool, is_static: bool },
     Return(Option<Box<Expression>>),
     Class { name: String, block: Vec<Statement>, parent: Option<String> },
@@ -354,7 +354,7 @@ impl Parser {
             return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
         }
 
-        let update: Statement = self.statement()?;
+        let update: Box<Expression> = self.expression()?;
  
         if !self.match_advance(&[Token::RightBracket]) {
             return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
@@ -368,7 +368,7 @@ impl Parser {
             _ => unreachable!(),
         };
 
-        Ok(Statement::For { initializer: Box::new(initializer), condition, update: Box::new(update), block })
+        Ok(Statement::For { initializer: Box::new(initializer), condition, update, block })
     }
     fn function(&mut self, is_static: bool) -> Result<Statement, ParseError> {
         let should_override: bool = self.match_advance(&[Token::Override]);

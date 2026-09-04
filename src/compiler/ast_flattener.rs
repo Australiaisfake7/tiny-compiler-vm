@@ -151,7 +151,8 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             let skip_index: usize = opcodes.len();
             opcodes.push(OpCode::Jump(0));
 
-            flatten_statement(update, opcodes, global_vars, vars, funcs, classes, loop_starts, depth + 1, func_data)?;
+            flatten_expression(update, opcodes, global_vars, vars, funcs, classes)?;
+            opcodes.push(OpCode::Pop(1));
             
             *opcodes.get_mut(skip_index).unwrap() = OpCode::Jump(opcodes.len());
 
