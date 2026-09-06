@@ -26,6 +26,7 @@ enum FlattenError {
     UnexpectedDeclarationValueType { variable: String, expected: DataType, received: DataType }, UnexpectedAssignmentValueType { variable: String, expected: DataType, received: DataType, },
     UnexpectedReturnValueType { func: String, expected: DataType, received: DataType }, ReturnOutsideFunction, MissingReturnStatement(String),
     UnpatchedConstructor(String), ParentIsSelf(String),
+    UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
 }
 struct ClassData {
     vars: Vec<(String, DataType)>,
@@ -331,29 +332,50 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         }
                     },
                     Statement::Function { name: func_name, data, should_override, is_static: false  } => {
-                        {
-                            let class: &mut ClassData = classes.get_mut(name).unwrap();
+                        let (override_slot, overridable, class_has_var, base_sig):
+                            (Option<usize>, bool, bool, Option<(DataType, Vec<DataType>)>) = {
+                            let class: &ClassData = classes.get(name).unwrap();
+                            let entry = class.funcs.get(func_name);
+                            (
+                                entry.map(|(slot, _, _, _)| *slot),
+                                entry.map(|(_, _, _, overridable)| *overridable).unwrap_or(false),
+                                class.vars.iter().any(|(s, _)| s == func_name),
+                                entry.map(|(_, r, p, _)| (r.clone(), p.clone())),
+                            )
+                        };
 
-                            let override_slot: Option<usize> = class.funcs.get(func_name).map(|(slot, _, _, _)| *slot);
-                            if (override_slot.is_some() && (!*should_override || !class.funcs.get(func_name).unwrap().3)) || class.vars.iter().any(|(s, _)| s == func_name) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name)) || funcs.contains_key(&format!("{}.{}", name, func_name)) {
-                                return Err(FlattenError::Shadowing(func_name.clone()));
-                            }
-                            if *should_override && override_slot.is_none() {
-                                return Err(FlattenError::UnexpectedOverride(func_name.clone()));
-                            }
-
-                            let slot: usize = if let Some(slot) = override_slot {
-                                *class.vtable.get_mut(slot).unwrap() = opcodes.len() + 1;
-                                slot
-                            }
-                            else {
-                                class.vtable.push(opcodes.len() + 1);
-                                class.vtable.len() - 1
-                            };
-
-                            class.funcs.insert(func_name.clone(), (slot, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
+                        if (override_slot.is_some() && (!*should_override || !overridable)) || class_has_var
+                            || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, func_name))
+                            || funcs.contains_key(&format!("{}.{}", name, func_name)) {
+                            return Err(FlattenError::Shadowing(func_name.clone()));
                         }
-                        flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, Some(name))?;
+                        if *should_override && override_slot.is_none() {
+                            return Err(FlattenError::UnexpectedOverride(func_name.clone()));
+                        }
+
+                        if let Some((base_return, base_params)) = &base_sig {
+                            let params_ok = base_params.len() == data.parameters.len()
+                                && base_params.iter().zip(data.parameters.iter())
+                                    .all(|(base_p, (new_p, _))| is_compatible(new_p, base_p, classes));
+
+                            if !is_compatible(base_return, &data.data_type, classes) || !params_ok {
+                                return Err(FlattenError::UnexpectedOverrideSignature {
+                                    name: format!("{}.{}", name, func_name),
+                                    expected: (base_return.clone(), base_params.clone()),
+                                    received: (data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect()),
+                                });
+                            }
+                        }
+
+                        let class: &mut ClassData = classes.get_mut(name).unwrap();
+                        let slot: usize = if let Some(slot) = override_slot {
+                            *class.vtable.get_mut(slot).unwrap() = opcodes.len() + 1;
+                            slot
+                        } else {
+                            class.vtable.push(opcodes.len() + 1);
+                            class.vtable.len() - 1
+                        };
+                        class.funcs.insert(func_name.clone(), (slot, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
                     },
                     Statement::Declaration { name: _, value: _, data_type: _, is_static: true } => {
                         continue
