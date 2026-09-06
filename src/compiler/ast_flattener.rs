@@ -25,6 +25,7 @@ enum FlattenError {
     ExpressionIsNotClass(Box<Expression>), StaticOutsideClass(String), UnexpectedParameterType { callee: Box<Expression>, expected: DataType, received: DataType, index: usize },
     UnexpectedDeclarationValueType { variable: String, expected: DataType, received: DataType }, UnexpectedAssignmentValueType { variable: String, expected: DataType, received: DataType, },
     UnexpectedReturnValueType { func: String, expected: DataType, received: DataType }, ReturnOutsideFunction, MissingReturnStatement(String),
+    UnpatchedConstructor(String),
 }
 struct ClassData {
     vars: Vec<(String, DataType)>,
@@ -472,6 +473,9 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                         opcodes.push(OpCode::NewInstance(i.clone()));
                         if parameters.len() != 0 {
                             return Err(FlattenError::UnexpectedParameterCount { callee: callee.clone(), expected: 0, received: parameters.len() });
+                        }
+                        if c.constructor == 0 {
+                            return Err(FlattenError::UnpatchedConstructor(i.clone()));
                         }
 
                         opcodes.push(OpCode::Call { index: c.constructor, parameters: parameters.len() + 1 });
