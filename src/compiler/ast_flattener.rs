@@ -25,7 +25,7 @@ enum FlattenError {
     ExpressionIsNotClass(Box<Expression>), StaticOutsideClass(String), UnexpectedParameterType { callee: Box<Expression>, expected: DataType, received: DataType, index: usize },
     UnexpectedDeclarationValueType { variable: String, expected: DataType, received: DataType }, UnexpectedAssignmentValueType { variable: String, expected: DataType, received: DataType, },
     UnexpectedReturnValueType { func: String, expected: DataType, received: DataType }, ReturnOutsideFunction, MissingReturnStatement(String),
-    UnpatchedConstructor(String),
+    UnpatchedConstructor(String), ParentIsSelf(String),
 }
 struct ClassData {
     vars: Vec<(String, DataType)>,
@@ -227,6 +227,11 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             }
             if classes.contains_key(name) || global_vars.iter().any(|(s, _)| s == name) || funcs.contains_key(name) {
                 return Err(FlattenError::Shadowing(name.clone()));
+            }
+            if let Some(n) = parent {
+                if n == name {
+                    return Err(FlattenError::ParentIsSelf(name.clone()));
+                }
             }
 
             classes.insert(name.clone(), ClassData { vars: Vec::new(), funcs: HashMap::new(), vtable: Vec::new(), parent: parent.clone(), constructor: 0 });
