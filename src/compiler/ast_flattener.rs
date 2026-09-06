@@ -19,7 +19,7 @@ enum OpCode {
 enum FlattenError {
     UndeclaredVariable(String), UndeclaredFunction(String), UndeclaredClass(String), InvalidFunctionCallee(Box<Expression>), ContinueOutsideLoop, BreakOutsideLoop,
     Shadowing(String), FunctionDeclarationInsideScope(String), ClassDeclarationInsideScope(String), UnexpectedClassMember(Statement), UnexpectedOverride(String),
-    UndeclaredClassVar(String),
+    UndeclaredClassVar(String), UndeclaredClassFunction(String),
     UnexpectedBinaryOpOpCode(OpCode), UnexpectedBinaryOpOperands { left: DataType, operator: BinaryOp, right: DataType }, UnexpectedUnaryOpOperands { operator: UnaryOp, operand: DataType },
     UnexpectedParameterCount { callee: Box<Expression>, expected: usize, received: usize },
     ExpressionIsNotClass(Box<Expression>), StaticOutsideClass(String), UnexpectedParameterType { callee: Box<Expression>, expected: DataType, received: DataType, index: usize },
@@ -498,6 +498,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                                 opcodes.push(OpCode::Call { index: *index, parameters: parameters.len() });
                                 return Ok(return_type.clone());
                             }
+                            return Err(FlattenError::UndeclaredClassFunction(format!("{}.{}", n, member)));
                         }
                     }
 
@@ -521,6 +522,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                                 opcodes.push(OpCode::CallVirtual { slot: *slot, parameters: parameters.len() + 1 });
                                 return Ok(d.clone());
                             }
+                            return Err(FlattenError::UndeclaredClassFunction(format!("{}.{}", class_name, member)));
                         }
                         return Err(FlattenError::UndeclaredClass(class_name));
                     }
