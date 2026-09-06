@@ -228,6 +228,8 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 return Err(FlattenError::Shadowing(name.clone()));
             }
 
+            classes.insert(name.clone(), ClassData { vars: Vec::new(), funcs: HashMap::new(), vtable: Vec::new(), parent: parent.clone(), constructor: 0 });
+
             for member in block {
                 match member {
                     Statement::Declaration { name: var_name, value, data_type, is_static: true } => {
@@ -262,7 +264,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             }
 
             let jump_index: usize = opcodes.len();
-            classes.insert(name.clone(), ClassData { vars: Vec::new(), funcs: HashMap::new(), vtable: Vec::new(), parent: parent.clone(), constructor: opcodes.len() + 1 });
+            classes.get_mut(name).unwrap().constructor = opcodes.len() + 1;
 
             if let Some(n) = parent {
                 let (parent_vars, parent_funcs, parent_vtable) = {
@@ -294,6 +296,8 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 }
             }
 
+            let self_reference_vars: Vec<(String, DataType)> = vec![("this".to_owned(), DataType::Instance(name.clone()))];
+
             for member in block {
                 match member {
                     Statement::Declaration { name: var_name, value, data_type, is_static: false } => {
@@ -305,7 +309,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         }
 
                         opcodes.push(OpCode::GetVar(0));
-                        let d: DataType = flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
+                        let d: DataType = flatten_expression(value, opcodes, global_vars, &self_reference_vars, funcs, classes)?;
 
                         if !is_compatible(data_type, &d, classes) {
                             return Err(FlattenError::UnexpectedDeclarationValueType { variable: format!("{}.{}", name, var_name), expected: data_type.clone(), received: d });
