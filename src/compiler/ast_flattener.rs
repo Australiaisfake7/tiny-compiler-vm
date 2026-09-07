@@ -703,14 +703,16 @@ fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, 
 
     let r: bool = flatten_block(&data.block, opcodes, global_vars, &mut func_vars, funcs, classes, loop_starts, depth, Some((name, &data.data_type)))?;
 
-    if !r && !matches!(data.data_type, DataType::Null | DataType::Nullable(_)) {
-        return Err(FlattenError::MissingReturnStatement(name.to_owned()));
-    }
+    if !r {
+        if !matches!(data.data_type, DataType::Null | DataType::Nullable(_)) {
+            return Err(FlattenError::MissingReturnStatement(name.to_owned()));
+        }
 
-    flatten_expression(&Expression::Literal(LiteralType::Null), opcodes, global_vars, &mut func_vars, funcs, classes)?;
-    opcodes.push(OpCode::PopStack);
-    opcodes.push(OpCode::Return);
-
+        flatten_expression(&Expression::Literal(LiteralType::Null), opcodes, global_vars, &mut func_vars, funcs, classes)?;
+        opcodes.push(OpCode::PopStack);
+        opcodes.push(OpCode::Return);
+    }    
+    
     *opcodes.get_mut(jump_index).unwrap() = OpCode::Jump(opcodes.len());
 
     Ok(())
