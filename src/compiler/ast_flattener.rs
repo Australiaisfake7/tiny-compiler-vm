@@ -367,18 +367,20 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                             }
                         }
 
-                        let class: &mut ClassData = classes.get_mut(name).unwrap();
-                        let slot: usize = if let Some(slot) = override_slot {
-                            *class.vtable.get_mut(slot).unwrap() = opcodes.len() + 1;
-                            slot
-                        } else {
-                            class.vtable.push(opcodes.len() + 1);
-                            class.vtable.len() - 1
+                        let slot: usize = {
+                            let class: &mut ClassData = classes.get_mut(name).unwrap();
+                            if let Some(slot) = override_slot {
+                                *class.vtable.get_mut(slot).unwrap() = opcodes.len() + 1;
+                                slot
+                            } else {
+                                class.vtable.push(opcodes.len() + 1);
+                                class.vtable.len() - 1
+                            }
                         };
 
                         flatten_function(func_name, data, opcodes, global_vars, funcs, classes, loop_starts, depth, Some(name))?;
 
-                        class.funcs.insert(func_name.clone(), (slot, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
+                        classes.get_mut(name).unwrap().funcs.insert(func_name.clone(), (slot, data.data_type.clone(), data.parameters.iter().map(|(d, _)| d.clone()).collect(), false));
                     },
                     Statement::Declaration { name: _, value: _, data_type: _, is_static: true } => {
                         continue
@@ -404,7 +406,7 @@ fn flatten_block(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_var
     let start_index: usize = vars.len();
     let r: bool = flatten_statements(statements, opcodes, global_vars, vars, funcs, classes, loop_starts, depth + 1, func_data)?;
 
-    opcodes.push(OpCode::Pop(vars.len() - start_index));
+    if !r { opcodes.push(OpCode::Pop(vars.len() - start_index)); }
     vars.truncate(start_index);
 
     Ok(r)
@@ -784,8 +786,6 @@ fn get_binary_type(left: &DataType, operator: &BinaryOp, right: &DataType, class
         (DataType::Int, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide, DataType::Int) => Ok(DataType::Int),
         (DataType::Float, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide, DataType::Float) => Ok(DataType::Float),
         (DataType::String, BinaryOp::Add, DataType::String) => Ok(DataType::String),
-
-        (DataType::Bool, BinaryOp::LAnd | BinaryOp::LOr, DataType::Bool) => Ok(DataType::Bool),
 
         (DataType::Int, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::Int) => Ok(DataType::Bool),
         (DataType::Float, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::Float) => Ok(DataType::Bool),
