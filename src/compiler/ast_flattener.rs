@@ -410,7 +410,11 @@ fn flatten_block(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_var
     let start_index: usize = vars.len();
     let r: bool = flatten_statements(statements, opcodes, global_vars, vars, funcs, classes, loop_starts, depth + 1, func_data)?;
 
-    if !r { opcodes.push(OpCode::Pop(vars.len() - start_index)); }
+    let ends_in_jump = statements.last().map_or(false, |s| matches!(s, Statement::Break | Statement::Continue));
+
+    if !r && !ends_in_jump { 
+        opcodes.push(OpCode::Pop(vars.len() - start_index)); 
+    }
     vars.truncate(start_index);
 
     Ok(r)
