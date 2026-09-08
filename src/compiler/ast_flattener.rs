@@ -137,7 +137,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             opcodes.push(OpCode::JumpIfFalse { index: 0, pop: true });
 
             loop_starts.push((start_index, vars.len(), Vec::new()));
-            flatten_block(block, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data)?;
+            let r: bool = flatten_block(block, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data)?;
             let (_, _, unpatched_breaks) = loop_starts.pop().unwrap();
 
             opcodes.push(OpCode::Jump(start_index));
@@ -146,6 +146,8 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             for index in unpatched_breaks {
                 *opcodes.get_mut(index).unwrap() = OpCode::Jump(opcodes.len());
             }
+
+            return Ok(r);
         },
         Statement::For { initializer, condition, update, block } => {
             let outer_vars_len: usize = vars.len();
@@ -165,7 +167,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             opcodes.push(OpCode::JumpIfFalse { index: 0, pop: true });
 
             loop_starts.push((skip_index + 1, inner_vars_len, Vec::new()));
-            flatten_block(block, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data)?;
+            let r: bool = flatten_block(block, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data)?;
             let (_, _, unpatched_breaks) = loop_starts.pop().unwrap();
 
             opcodes.push(OpCode::Jump(skip_index + 1));
@@ -177,6 +179,8 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             for index in unpatched_breaks {
                 *opcodes.get_mut(index).unwrap() = OpCode::Jump(opcodes.len() - 1);
             }
+
+            return Ok(r);
         },
         Statement::Print(expression) => {
             flatten_expression(expression, opcodes, global_vars, vars, funcs, classes)?;
