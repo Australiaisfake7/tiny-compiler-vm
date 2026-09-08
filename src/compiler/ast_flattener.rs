@@ -506,7 +506,6 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                         Ok(f.1.clone())
                     }
                     else if let Some(c) = classes.get(i) {
-                        opcodes.push(OpCode::NewInstance(i.clone()));
                         if parameters.len() != 0 {
                             return Err(FlattenError::UnexpectedParameterCount { callee: callee.clone(), expected: 0, received: parameters.len() });
                         }
@@ -514,6 +513,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                             return Err(FlattenError::UnpatchedConstructor(i.clone()));
                         }
 
+                        opcodes.push(OpCode::NewInstance(i.clone()));
                         opcodes.push(OpCode::Call { index: c.constructor, parameters: parameters.len() + 1 });
                         Ok(DataType::Instance(i.clone()))
                     }
@@ -659,11 +659,13 @@ fn flatten_binary(left: &Box<Expression>, operator: &BinaryOp, right: &Box<Expre
 fn normal_binary(left: &Box<Expression>, right: &Box<Expression>, opcode: OpCode, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
     let l: DataType = flatten_expression(left, opcodes, global_vars, vars, funcs, classes)?;
     let r: DataType = flatten_expression(right, opcodes, global_vars, vars, funcs, classes)?;
-    opcodes.push(opcode.clone());
 
     let operator: BinaryOp = BinaryOp::try_from(&opcode).map_err(|op| FlattenError::UnexpectedBinaryOpOpCode(op.clone()))?;
+    let d: DataType = get_binary_type(&l, &operator, &r, classes).map_err(|_| FlattenError::UnexpectedBinaryOpOperands { left: l, operator, right: r })?;
 
-    get_binary_type(&l, &operator, &r, classes).map_err(|_| FlattenError::UnexpectedBinaryOpOperands { left: l, operator, right: r })
+    opcodes.push(opcode.clone());
+
+    Ok(d)
 }
 
 fn short_circuit_binary(left: &Box<Expression>, right: &Box<Expression>, jump_on: bool, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
