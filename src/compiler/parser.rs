@@ -347,7 +347,11 @@ impl Parser {
             return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
         }
 
-        let initializer: Statement = self.statement()?;
+        let initializer: Statement = if self.match_advance(&[Token::Semicolon]) {
+            Statement::Block(Vec::new())
+        } else {
+            self.statement()?
+        };
         let condition: Box<Expression> = self.expression()?;
 
         if !self.match_advance(&[Token::Semicolon]) {
