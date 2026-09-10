@@ -658,6 +658,9 @@ impl Parser {
                     }
 
                     parameters.push(*self.expression()?);
+                    if self.match_advance(&[Token::RightBracket]) {
+                        break;
+                    }
                     if !self.match_advance(&[Token::Semicolon]) {
                         return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
                     }
