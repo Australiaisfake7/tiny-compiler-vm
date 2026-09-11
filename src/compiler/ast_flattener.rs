@@ -27,6 +27,7 @@ enum FlattenError {
     UnexpectedReturnValueType { func: String, expected: DataType, received: DataType }, ReturnOutsideFunction, MissingReturnStatement(String),
     UnpatchedConstructor(String), ParentIsSelf(String),
     UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
+    ReservedKeyword(String),
 }
 struct ClassData {
     vars: Vec<(String, DataType)>,
@@ -187,6 +188,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             opcodes.push(OpCode::Print);
         },
         Statement::Declaration { name, value, data_type, is_static } => {
+            if name == "this" {
+                return Err(FlattenError::ReservedKeyword(name.clone()));
+            }
             if *is_static {
                 return Err(FlattenError::StaticOutsideClass(name.clone()));
             }
@@ -705,6 +709,9 @@ fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, 
     }
 
     for (data_type, name) in &data.parameters {
+        if name == "this" {
+            return Err(FlattenError::ReservedKeyword(name.clone()));
+        }
         if func_vars.iter().any(|(s, _)| s == name) || funcs.contains_key(name) || classes.contains_key(name) {
             return Err(FlattenError::Shadowing(name.clone()));
         }
