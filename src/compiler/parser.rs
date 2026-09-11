@@ -669,8 +669,12 @@ impl Parser {
                 expr = Box::new(Expression::Call { callee: expr, parameters });
             }
             else if self.match_advance(&[Token::Dot]) {
-                if let Token::Identifier(member) = self.advance()?.clone() {
+                if let Token::Identifier(member) = self.peek()?.clone() {
                     expr = Box::new(Expression::MemberAccess { class: expr, member });
+                    self.advance()?;
+                }
+                else {
+                    return Err(ParseError::UnexpectedToken { expected: "Identifier", got: self.peek()?.clone() });
                 }
             }
             else {
