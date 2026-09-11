@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::compiler::{lexer::DataType, parser::{BinaryOp, Expression, FunctionData, LiteralType, Statement, UnaryOp}};
+use crate::compiler::{ast_flattener::FlattenError::UnexpectedAssignmentTarget, lexer::DataType, parser::{BinaryOp, Expression, FunctionData, LiteralType, Statement, UnaryOp}};
 
 #[derive(Clone)]
 enum OpCode {
@@ -27,7 +27,7 @@ enum FlattenError {
     UnexpectedReturnValueType { func: String, expected: DataType, received: DataType }, ReturnOutsideFunction, MissingReturnStatement(String),
     UnpatchedConstructor(String), ParentIsSelf(String),
     UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
-    ReservedKeyword(String),
+    ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>),
 }
 struct ClassData {
     vars: Vec<(String, DataType)>,
@@ -431,6 +431,9 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
         Expression::Assignment { target, value } => {
             match &**target {
                 Expression::Variable(i) => {
+                    if i == "this" {
+                        return Err(FlattenError::UnexpectedAssignmentTarget(target.clone()));
+                    }
                     let value_type: DataType = flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
                     opcodes.push(match vars.iter().rposition(|(s, _)| s == i) {
                         Some(index) => {
