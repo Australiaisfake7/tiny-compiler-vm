@@ -427,7 +427,7 @@ impl Parser {
             other => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: other.clone() }),
         };
 
-        if !self.match_advance(&[Token::Semicolon]) {
+        if self.peek()? != &Token::RightBracket && !self.match_advance(&[Token::Semicolon]) {
             return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() })
         }
 
