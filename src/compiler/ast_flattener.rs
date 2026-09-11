@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::compiler::{ast_flattener::FlattenError::UnexpectedAssignmentTarget, lexer::DataType, parser::{BinaryOp, Expression, FunctionData, LiteralType, Statement, UnaryOp}};
+use crate::compiler::{lexer::DataType, parser::{BinaryOp, Expression, FunctionData, LiteralType, Statement, UnaryOp}};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum OpCode {
     PushConst(LiteralType), Pop(usize),
     LNot, Negate, Add, Subtract, Multiply, Divide,
@@ -14,9 +14,10 @@ enum OpCode {
     Return, Print,
     GetMember(usize), SetMember(usize),
     NewStack, PopStack,
-    NewInstance(String), 
+    NewInstance(usize), 
 }
-enum FlattenError {
+#[derive(Debug)]
+pub enum FlattenError {
     UndeclaredVariable(String), UndeclaredFunction(String), UndeclaredClass(String), InvalidFunctionCallee(Box<Expression>), ContinueOutsideLoop, BreakOutsideLoop,
     Shadowing(String), FunctionDeclarationInsideScope(String), ClassDeclarationInsideScope(String), UnexpectedClassMember(Statement), UnexpectedOverride(String),
     UndeclaredClassVar(String), UndeclaredClassFunction(String),
@@ -35,6 +36,29 @@ struct ClassData {
     vtable: Vec<usize>,
     parent: Option<String>,
     constructor: usize,
+    id: usize,
+}
+pub struct CompiledData {
+    pub opcodes: Vec<OpCode>,
+    pub vtables: Vec<Vec<usize>>,
+}
+pub fn flatten_ast(statements: &[Statement]) -> Result<CompiledData, FlattenError> {
+    let mut opcodes: Vec<OpCode> = Vec::new();
+    let mut global_vars: Vec<(String, DataType)> = Vec::new();
+    let mut vars: Vec<(String, DataType)> = Vec::new();
+    let mut funcs: HashMap<String, (usize, DataType, Vec<DataType>)> = HashMap::new();
+    let mut classes: HashMap<String, ClassData> = HashMap::new();
+    let mut loop_starts: Vec<(usize, usize, Vec<usize>)> = Vec::new();
+
+    flatten_statements(statements, &mut opcodes, &mut global_vars, &mut vars, &mut funcs, &mut classes, &mut loop_starts, 0, None)?;
+
+    let mut vtables: Vec<Vec<usize>> = vec![Vec::new(); classes.len()];
+
+    for (_, data) in classes {
+        *vtables.get_mut(data.id).unwrap() = data.vtable;
+    }
+
+    Ok(CompiledData { opcodes, vtables })
 }
 fn flatten_statements(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, func_data: Option<(&str, &DataType)>) -> Result<(bool, bool), FlattenError> {
     let mut r: bool = false;
@@ -51,7 +75,6 @@ fn flatten_statements(statements: &[Statement], opcodes: &mut Vec<OpCode>, globa
 
     Ok((r, t))
 }
-
 fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, func_data: Option<(&str, &DataType)>) -> Result<bool, FlattenError> {
     match statement {
         Statement::Block(statements) => {
@@ -241,7 +264,8 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 }
             }
 
-            classes.insert(name.clone(), ClassData { vars: Vec::new(), funcs: HashMap::new(), vtable: Vec::new(), parent: parent.clone(), constructor: 0 });
+            let id: usize = classes.len();
+            classes.insert(name.clone(), ClassData { vars: Vec::new(), funcs: HashMap::new(), vtable: Vec::new(), parent: parent.clone(), constructor: 0, id });
 
             for member in block {
                 match member {
@@ -519,7 +543,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                             return Err(FlattenError::UnpatchedConstructor(i.clone()));
                         }
 
-                        opcodes.push(OpCode::NewInstance(i.clone()));
+                        opcodes.push(OpCode::NewInstance(c.id));
                         opcodes.push(OpCode::Call { index: c.constructor, parameters: parameters.len() + 1 });
                         Ok(DataType::Instance(i.clone()))
                     }
