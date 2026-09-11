@@ -36,22 +36,20 @@ struct ClassData {
     parent: Option<String>,
     constructor: usize,
 }
-fn flatten_statements(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, func_data: Option<(&str, &DataType)>) -> Result<bool, FlattenError> {
+fn flatten_statements(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, func_data: Option<(&str, &DataType)>) -> Result<(bool, bool), FlattenError> {
     let mut r: bool = false;
+    let mut t: bool = false;
 
     for statement in statements {
         r = flatten_statement(statement, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data)?;
 
-        if r {
-            break;
-        }
-
-        if matches!(statement, Statement::Break | Statement::Continue) {
+        if r || matches!(statement, Statement::Break | Statement::Continue) {
+            t = true;
             break;
         }
     }
 
-    Ok(r)
+    Ok((r, t))
 }
 
 fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, func_data: Option<(&str, &DataType)>) -> Result<bool, FlattenError> {
@@ -411,11 +409,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
 
 fn flatten_block(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, func_data: Option<(&str, &DataType)>) -> Result<bool, FlattenError> {
     let start_index: usize = vars.len();
-    let r: bool = flatten_statements(statements, opcodes, global_vars, vars, funcs, classes, loop_starts, depth + 1, func_data)?;
+    let (r, t): (bool, bool) = flatten_statements(statements, opcodes, global_vars, vars, funcs, classes, loop_starts, depth + 1, func_data)?;
 
-    let ends_in_jump = statements.last().map_or(false, |s| matches!(s, Statement::Break | Statement::Continue));
-
-    if !r && !ends_in_jump { 
+    if !t { 
         opcodes.push(OpCode::Pop(vars.len() - start_index)); 
     }
     vars.truncate(start_index);
