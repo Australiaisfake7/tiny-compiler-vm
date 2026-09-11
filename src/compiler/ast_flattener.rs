@@ -360,7 +360,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         if let Some((base_return, base_params)) = &base_sig {
                             let params_ok = base_params.len() == data.parameters.len()
                                 && base_params.iter().zip(data.parameters.iter())
-                                    .all(|(base_p, (new_p, _))| is_compatible(base_p, new_p, classes));
+                                    .all(|(base_p, (new_p, _))| base_p == new_p);
 
                             if !is_compatible(base_return, &data.data_type, classes) || !params_ok {
                                 return Err(FlattenError::UnexpectedOverrideSignature {
