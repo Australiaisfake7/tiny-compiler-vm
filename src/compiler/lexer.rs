@@ -170,12 +170,12 @@ impl<'a> Scanner<'a> {
                     }
                 }
             },
-            Some(c) if c.is_alphabetic() => {
+            Some(c) if c.is_alphabetic() || c == '_' => {
                 let mut s: String = c.to_string();
 
                 loop {
                     match self.peek() {
-                        Some(a) if a.is_alphanumeric() => { s.push(a); self.advance(); },
+                        Some(a) if a.is_alphanumeric() || a == '_' => { s.push(a); self.advance(); },
                         _ => break,
                     }
                 }
