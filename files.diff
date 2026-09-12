@@ -1,0 +1,1872 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 571fe31..8e49a75 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2,6 +2,226 @@
+ # It is not intended for manual editing.
+ version = 4
+ 
++[[package]]
++name = "anstream"
++version = "1.0.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "824a212faf96e9acacdbd09febd34438f8f711fb84e09a8916013cd7815ca28d"
++dependencies = [
++ "anstyle",
++ "anstyle-parse",
++ "anstyle-query",
++ "anstyle-wincon",
++ "colorchoice",
++ "is_terminal_polyfill",
++ "utf8parse",
++]
++
++[[package]]
++name = "anstyle"
++version = "1.0.14"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
++
++[[package]]
++name = "anstyle-parse"
++version = "1.0.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "52ce7f38b242319f7cabaa6813055467063ecdc9d355bbb4ce0c68908cd8130e"
++dependencies = [
++ "utf8parse",
++]
++
++[[package]]
++name = "anstyle-query"
++version = "1.1.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
++dependencies = [
++ "windows-sys",
++]
++
++[[package]]
++name = "anstyle-wincon"
++version = "3.0.11"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
++dependencies = [
++ "anstyle",
++ "once_cell_polyfill",
++ "windows-sys",
++]
++
++[[package]]
++name = "bincode"
++version = "1.3.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
++dependencies = [
++ "serde",
++]
++
++[[package]]
++name = "clap"
++version = "4.6.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "473c7e07f409a8d772161724aa8db6a765a2532a70f9667eeb7b49d3d02fbdca"
++dependencies = [
++ "clap_builder",
++ "clap_derive",
++]
++
++[[package]]
++name = "clap_builder"
++version = "4.6.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "7b48fea5a88e9ae728a2dcbedbfc0e730f7d60da42e1cb049a83c9fb8b789889"
++dependencies = [
++ "anstream",
++ "anstyle",
++ "clap_lex",
++ "strsim",
++]
++
++[[package]]
++name = "clap_derive"
++version = "4.6.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d012d2b9d65aca7f18f4d9878a045bc17899bba951561ba5ec3c2ba1eed9a061"
++dependencies = [
++ "heck",
++ "proc-macro2",
++ "quote",
++ "syn",
++]
++
++[[package]]
++name = "clap_lex"
++version = "1.1.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
++
++[[package]]
++name = "colorchoice"
++version = "1.0.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
++
++[[package]]
++name = "heck"
++version = "0.5.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
++
++[[package]]
++name = "is_terminal_polyfill"
++version = "1.70.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
++
++[[package]]
++name = "once_cell_polyfill"
++version = "1.70.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
++
++[[package]]
++name = "proc-macro2"
++version = "1.0.107"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
++dependencies = [
++ "unicode-ident",
++]
++
++[[package]]
++name = "quote"
++version = "1.0.47"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
++dependencies = [
++ "proc-macro2",
++]
++
++[[package]]
++name = "serde"
++version = "1.0.229"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
++dependencies = [
++ "serde_core",
++ "serde_derive",
++]
++
++[[package]]
++name = "serde_core"
++version = "1.0.229"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"
++dependencies = [
++ "serde_derive",
++]
++
++[[package]]
++name = "serde_derive"
++version = "1.0.229"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn",
++]
++
++[[package]]
++name = "strsim"
++version = "0.11.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
++
++[[package]]
++name = "syn"
++version = "3.0.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "unicode-ident",
++]
++
+ [[package]]
+ name = "tiny-compiler-vm"
+ version = "0.1.0"
++dependencies = [
++ "bincode",
++ "clap",
++ "serde",
++]
++
++[[package]]
++name = "unicode-ident"
++version = "1.0.24"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
++
++[[package]]
++name = "utf8parse"
++version = "0.2.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
++
++[[package]]
++name = "windows-link"
++version = "0.2.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
++
++[[package]]
++name = "windows-sys"
++version = "0.61.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
++dependencies = [
++ "windows-link",
++]
+diff --git a/Cargo.toml b/Cargo.toml
+index 2f32140..25c3dc1 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -3,4 +3,7 @@ name = "tiny-compiler-vm"
+ version = "0.1.0"
+ edition = "2024"
+ 
+-[dependencies]
+\ No newline at end of file
++[dependencies]
++bincode = "1.3"
++clap = { version = "4.6.6", features = ["derive"] }
++serde = { version = "1.0.229", features = ["derive"] }
+diff --git a/src/compiler.rs b/src/compiler.rs
+index ca6c5d2..f7973a0 100644
+--- a/src/compiler.rs
++++ b/src/compiler.rs
+@@ -1,14 +1,14 @@
+ use parser::Statement;
+ use lexer::Token;
+-use ast_flattener::CompiledData;
++pub use ast_flattener::CompiledData;
+ 
+ mod lexer;
+ mod parser;
+ mod ast_flattener;
+ 
+-pub fn compile(source: &'static str) -> CompiledData {
+-    let tokens: Vec<Token> = lexer::lex_chars(source.chars()).unwrap();
+-    let statements: Vec<Statement> = parser::parse_tokens(tokens).unwrap();
+-    let compiled_data: CompiledData = ast_flattener::flatten_ast(&statements).unwrap();
+-    compiled_data
++pub fn compile(source: &str) -> Result<CompiledData, Box<dyn std::error::Error>> {
++    let tokens: Vec<Token> = lexer::lex_chars(source.chars())?;
++    let statements: Vec<Statement> = parser::parse_tokens(tokens)?;
++    let compiled_data: CompiledData = ast_flattener::flatten_ast(&statements)?;
++    Ok(compiled_data)
+ }
+diff --git a/src/compiler/ast_flattener.rs b/src/compiler/ast_flattener.rs
+index 55fb3c7..5aa0b2b 100644
+--- a/src/compiler/ast_flattener.rs
++++ b/src/compiler/ast_flattener.rs
+@@ -1,8 +1,10 @@
+ use std::collections::HashMap;
++use std::fmt;
++use serde::{Serialize, Deserialize};
+ 
+ use crate::compiler::{lexer::DataType, parser::{BinaryOp, Expression, FunctionData, LiteralType, Statement, UnaryOp}};
+ 
+-#[derive(Debug, Clone)]
++#[derive(Debug, Clone, Serialize, Deserialize)]
+ enum OpCode {
+     PushConst(LiteralType), Pop(usize),
+     LNot, Negate, Add, Subtract, Multiply, Divide,
+@@ -30,6 +32,62 @@ pub enum FlattenError {
+     UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
+     ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>),
+ }
++
++impl fmt::Display for FlattenError {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        match self {
++            FlattenError::UndeclaredVariable(name) => write!(f, "undeclared variable '{name}'"),
++            FlattenError::UndeclaredFunction(name) => write!(f, "undeclared function '{name}'"),
++            FlattenError::UndeclaredClass(name) => write!(f, "undeclared class '{name}'"),
++            FlattenError::InvalidFunctionCallee(callee) => write!(f, "cannot call {callee:?} as a function"),
++            FlattenError::ContinueOutsideLoop => write!(f, "'continue' used outside of a loop"),
++            FlattenError::BreakOutsideLoop => write!(f, "'break' used outside of a loop"),
++            FlattenError::Shadowing(name) => write!(f, "'{name}' shadows an existing declaration"),
++            FlattenError::FunctionDeclarationInsideScope(name) =>
++                write!(f, "function '{name}' declared inside a nested scope"),
++            FlattenError::ClassDeclarationInsideScope(name) =>
++                write!(f, "class '{name}' declared inside a nested scope"),
++            FlattenError::UnexpectedClassMember(statement) =>
++                write!(f, "{statement:?} is not a valid class member"),
++            FlattenError::UnexpectedOverride(name) =>
++                write!(f, "'{name}' is marked override but does not override anything"),
++            FlattenError::UndeclaredClassVar(name) => write!(f, "undeclared class variable '{name}'"),
++            FlattenError::UndeclaredClassFunction(name) => write!(f, "undeclared class function '{name}'"),
++            FlattenError::UnexpectedBinaryOpOpCode(opcode) =>
++                write!(f, "unexpected opcode {opcode:?} produced for binary operator"),
++            FlattenError::UnexpectedBinaryOpOperands { left, operator, right } =>
++                write!(f, "cannot apply {operator:?} to operands of type {left:?} and {right:?}"),
++            FlattenError::UnexpectedUnaryOpOperands { operator, operand } =>
++                write!(f, "cannot apply {operator:?} to operand of type {operand:?}"),
++            FlattenError::UnexpectedParameterCount { callee, expected, received } =>
++                write!(f, "{callee:?} expects {expected} parameter(s), but {received} were given"),
++            FlattenError::ExpressionIsNotClass(expr) => write!(f, "{expr:?} is not a class instance"),
++            FlattenError::StaticOutsideClass(name) =>
++                write!(f, "'{name}' is marked static but declared outside a class"),
++            FlattenError::UnexpectedParameterType { callee, expected, received, index } =>
++                write!(f, "parameter {index} of {callee:?} expects type {expected:?}, but received {received:?}"),
++            FlattenError::UnexpectedDeclarationValueType { variable, expected, received } =>
++                write!(f, "'{variable}' is declared as {expected:?}, but assigned a value of type {received:?}"),
++            FlattenError::UnexpectedAssignmentValueType { variable, expected, received } =>
++                write!(f, "'{variable}' is of type {expected:?}, but assigned a value of type {received:?}"),
++            FlattenError::UnexpectedReturnValueType { func, expected, received } =>
++                write!(f, "function '{func}' returns {expected:?}, but a value of type {received:?} was returned"),
++            FlattenError::ReturnOutsideFunction => write!(f, "'return' used outside of a function"),
++            FlattenError::MissingReturnStatement(name) =>
++                write!(f, "function '{name}' is missing a return statement on some code path"),
++            FlattenError::UnpatchedConstructor(name) => write!(f, "class '{name}' has no constructor patched in"),
++            FlattenError::ParentIsSelf(name) => write!(f, "class '{name}' cannot inherit from itself"),
++            FlattenError::UnexpectedOverrideSignature { name, expected, received } =>
++                write!(f, "'{name}' overrides with signature {received:?}, but the parent declares {expected:?}"),
++            FlattenError::ReservedKeyword(name) =>
++                write!(f, "'{name}' is a reserved keyword and cannot be used as an identifier"),
++            FlattenError::UnexpectedAssignmentTarget(expr) => write!(f, "{expr:?} is not a valid assignment target"),
++        }
++    }
++}
++
++impl std::error::Error for FlattenError {}
++
+ struct ClassData {
+     vars: Vec<(String, DataType)>,
+     funcs: HashMap<String, (usize, DataType, Vec<DataType>, bool)>,
+@@ -38,6 +96,7 @@ struct ClassData {
+     constructor: usize,
+     id: usize,
+ }
++#[derive(Serialize, Deserialize)]
+ pub struct CompiledData {
+     pub opcodes: Vec<OpCode>,
+     pub vtables: Vec<Vec<usize>>,
+diff --git a/src/compiler/lexer.rs b/src/compiler/lexer.rs
+index 5742821..a320293 100644
+--- a/src/compiler/lexer.rs
++++ b/src/compiler/lexer.rs
+@@ -1,3 +1,4 @@
++use std::fmt;
+ use std::str::Chars;
+ 
+ #[derive(Debug, Clone, PartialEq)]
+@@ -29,6 +30,14 @@ pub struct LexError {
+     _character: usize,
+ }
+ 
++impl fmt::Display for LexError {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        write!(f, "{} (line {}, character {})", self._message, self._line, self._character)
++    }
++}
++
++impl std::error::Error for LexError {}
++
+ struct Scanner<'a> {
+     source: Chars<'a>,
+     _line: usize,
+diff --git a/src/compiler/parser.rs b/src/compiler/parser.rs
+index dc4f5f5..9fe0207 100644
+--- a/src/compiler/parser.rs
++++ b/src/compiler/parser.rs
+@@ -1,706 +1,724 @@
+-use super::lexer::{Token, DataType};
+-use std::convert::TryFrom;
+-
+-#[derive(Debug)]
+-pub enum ParseError {
+-    UnexpectedToken { expected: &'static str, got: Token },
+-    UnexpectedReadIndex(usize),
+-    UnexpectedAssignmentTarget(Box<Expression>),
+-}
+-#[derive(Debug, Clone, PartialEq)]
+-pub enum BinaryOp {
+-    Add,
+-    Subtract,
+-    Multiply,
+-    Divide,
+-    Equal,
+-    NotEqual,
+-    Less,
+-    LessEqual,
+-    Greater,
+-    GreaterEqual,
+-    LAnd,
+-    LOr,
+-}
+-#[derive(Debug, Clone, PartialEq)]
+-pub enum UnaryOp {
+-    LNot,
+-    Negate,
+-}
+-#[derive(Debug, Clone, PartialEq)]
+-pub enum LiteralType {
+-    String(String),
+-    Int(i64),
+-    Float(f64),
+-    Bool(bool),
+-    Null,
+-}
+-#[derive(Debug, Clone, PartialEq)]
+-pub struct VariableData {
+-    pub data_type: DataType,
+-    pub value: LiteralType,
+-}
+-#[derive(Debug, Clone, PartialEq)]
+-pub struct FunctionData {
+-    pub data_type: DataType,
+-    pub parameters: Vec<(DataType, String)>,
+-    pub block: Vec<Statement>,
+-}
+-#[derive(Debug, Clone, PartialEq)]
+-pub enum Expression {
+-    Binary {
+-        left: Box<Expression>,
+-        operator: BinaryOp,
+-        right: Box<Expression>,
+-    },
+-    Unary {
+-        operator: UnaryOp,
+-        right: Box<Expression>,
+-    },
+-    Literal(LiteralType),
+-    Variable(String),
+-    Assignment {
+-        target: Box<Expression>,
+-        value: Box<Expression>,
+-    },
+-    Call {
+-        callee: Box<Expression>,
+-        parameters: Vec<Expression>,
+-    },
+-    MemberAccess {
+-        class: Box<Expression>,
+-        member: String,
+-    },
+-}
+-#[derive(Debug, Clone, PartialEq)]
+-pub enum Statement {
+-    Expression(Box<Expression>),
+-    Declaration { name: String, value: Box<Expression>, data_type: DataType, is_static: bool },
+-    Block(Vec<Statement>),
+-    If { condition: Box<Expression>, block: Vec<Statement> },
+-    IfElse { condition: Box<Expression>, block1: Vec<Statement>, block2: Vec<Statement> },
+-    Print(Box<Expression>),
+-    While { condition: Box<Expression>, block: Vec<Statement> },
+-    For { initializer: Box<Statement>, condition: Box<Expression>, update: Box<Expression>, block: Vec<Statement> },
+-    Function { name: String, data: FunctionData, should_override: bool, is_static: bool },
+-    Return(Option<Box<Expression>>),
+-    Class { name: String, block: Vec<Statement>, parent: Option<String> },
+-    Continue, Break,
+-}
+-
+-impl TryFrom<&Token> for BinaryOp {
+-    type Error = Token;
+-
+-    fn try_from(token: &Token) -> Result<Self, Self::Error> {
+-        return match token {
+-            Token::Plus => Ok(BinaryOp::Add),
+-            Token::Minus => Ok(BinaryOp::Subtract),
+-            Token::Asterisk => Ok(BinaryOp::Multiply),
+-            Token::Slash => Ok(BinaryOp::Divide),
+-            Token::Equal => Ok(BinaryOp::Equal),
+-            Token::NotEqual => Ok(BinaryOp::NotEqual),
+-            Token::Less => Ok(BinaryOp::Less),
+-            Token::LessEqual => Ok(BinaryOp::LessEqual),
+-            Token::Greater => Ok(BinaryOp::Greater),
+-            Token::GreaterEqual => Ok(BinaryOp::GreaterEqual),
+-            Token::LAnd => Ok(BinaryOp::LAnd),
+-            Token::LOr => Ok(BinaryOp::LOr),
+-            _ => Err(token.clone()),
+-        }
+-    }
+-}
+-
+-impl TryFrom<&Token> for UnaryOp {
+-    type Error = Token;
+-
+-    fn try_from(token: &Token) -> Result<Self, Self::Error> {
+-        return match token {
+-            Token::LNot => Ok(UnaryOp::LNot),
+-            Token::Minus => Ok(UnaryOp::Negate),
+-            _ => Err(token.clone()),
+-        }
+-    }
+-}
+-
+-pub fn parse_tokens(tokens: Vec<Token>) -> Result<Vec<Statement>, ParseError> {
+-    let mut parser: Parser = Parser::from_tokens(tokens);
+-
+-    let mut statements: Vec<Statement> = Vec::new();
+-
+-    while !parser.match_advance(&[Token::EOF]) {
+-        statements.push(parser.statement()?);
+-    }
+-
+-    Ok(statements)
+-}
+-
+-struct Parser {
+-    tokens: Vec<Token>,
+-    position: usize
+-}
+-
+-impl Default for Parser {
+-    fn default() -> Self {
+-        return Self {
+-            tokens: Vec::new(),
+-            position: 0
+-        };
+-    }
+-}
+-
+-impl Parser {
+-    fn new() -> Self {
+-        return Default::default();
+-    }
+-    fn from_tokens(tokens: Vec<Token>) -> Self {
+-        let mut p: Self = Self::new();
+-        p.tokens = tokens;
+-        return p;
+-    }
+-    fn peek(&self) -> Result<&Token, ParseError> {
+-        self.tokens.get(self.position).ok_or(ParseError::UnexpectedReadIndex(self.position))
+-    }
+-    fn previous(&self) -> Result<&Token, ParseError> {
+-        if self.position > 0 {
+-            return self.tokens.get(self.position - 1).ok_or(ParseError::UnexpectedReadIndex(self.position - 1));
+-        }
+-        return Err(ParseError::UnexpectedReadIndex(usize::MAX));
+-    }
+-    fn advance(&mut self) -> Result<&Token, ParseError> {
+-        self.position += 1;
+-        self.previous()
+-    }
+-    fn match_advance(&mut self, tokens: &[Token]) -> bool {
+-        let disc = match self.peek() {
+-            Ok(v) => std::mem::discriminant(v),
+-            Err(_) => return false,
+-        };
+-
+-        for token in tokens {
+-            if std::mem::discriminant(token) == disc {
+-                let _ = self.advance();
+-                return true;
+-            }
+-        }
+-        return false;
+-    }
+-    fn statement(&mut self) -> Result<Statement, ParseError> {
+-        if self.match_advance(&[Token::Let]) {
+-            return self.declaration(false);
+-        }
+-        if self.match_advance(&[Token::LeftBrace]) {
+-            return self.block();
+-        }
+-        if self.match_advance(&[Token::If]) {
+-            return self.if_else();
+-        }
+-        if self.match_advance(&[Token::Print]) {
+-            return self.print();
+-        }
+-        if self.match_advance(&[Token::While]) {
+-            return self.while_loop();
+-        }
+-        if self.match_advance(&[Token::For]) {
+-            return self.for_loop();
+-        }
+-        if self.match_advance(&[Token::Fun]) {
+-            return self.function(false);
+-        }
+-        if self.match_advance(&[Token::Return]) {
+-            return self.return_statement();
+-        }
+-        if self.match_advance(&[Token::Class]) {
+-            return self.class();
+-        }
+-        if self.match_advance(&[Token::Continue]) {
+-            return self.continue_statement();
+-        }
+-        if self.match_advance(&[Token::Break]) {
+-            return self.break_statement();
+-        }
+-        if self.match_advance(&[Token::Static]) {
+-        if self.match_advance(&[Token::Let]) {
+-            return self.declaration(true);
+-        }
+-        if self.match_advance(&[Token::Fun]) {
+-            return self.function(true);
+-        }
+-        return Err(ParseError::UnexpectedToken { expected: "'let' or 'fun' after 'static'", got: self.peek()?.clone() });
+-    }
+-
+-        let expr: Box<Expression> = self.expression()?;
+-        if !self.match_advance(&[Token::Semicolon]) {
+-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() })
+-        }
+-
+-        return Ok(Statement::Expression(expr));
+-    }
+-    fn declaration(&mut self, is_static: bool) -> Result<Statement, ParseError> {
+-        let nullable: bool = self.match_advance(&[Token::Nullable]);
+-
+-        let t: DataType = match self.advance()? {
+-            Token::DataType(d) => {
+-                let mut data_type: DataType = d.clone();
+-                if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
+-
+-                data_type
+-            },
+-            Token::Identifier(c) => {
+-                let mut data_type: DataType = DataType::Instance(c.clone());
+-                if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
+-
+-                data_type
+-            }
+-            token => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: token.clone() })
+-        };
+-        let n: String = match self.advance()? {
+-            Token::Identifier(i) => i.clone(),
+-            token => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: token.clone() })
+-        };
+-        let v: Box<Expression> = match self.advance()? {
+-            Token::Semicolon => return Ok(Statement::Declaration { name: n, value: Box::new(Expression::Literal(LiteralType::Null)), data_type: t, is_static }),
+-            Token::Assign => self.expression()?,
+-            token => return Err(ParseError::UnexpectedToken { expected: "';'", got: token.clone() })
+-        };
+-        if !self.match_advance(&[Token::Semicolon]) {
+-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+-        }
+-
+-        return Ok(Statement::Declaration { name: n, value: v, data_type: t, is_static });
+-    }
+-    fn block(&mut self) -> Result<Statement, ParseError> {
+-        let mut stmts: Vec<Statement> = Vec::new();
+-
+-        loop {
+-            match self.peek()? {
+-                Token::RightBrace => { self.advance()?; return Ok(Statement::Block(stmts)); },
+-                Token::EOF => return Err(ParseError::UnexpectedToken { expected: "'}'", got: Token::EOF }),
+-                _ => stmts.push(self.statement()?),
+-            }
+-        }
+-    }
+-    fn if_else(&mut self) -> Result<Statement, ParseError> {
+-        if !self.match_advance(&[Token::LeftBracket]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
+-        }
+-
+-        let condition: Box<Expression> = self.expression()?;
+-
+-        if !self.match_advance(&[Token::RightBracket]) {
+-            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
+-        }
+-        if !self.match_advance(&[Token::LeftBrace]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
+-        }
+-
+-        let block1: Vec<Statement> = match self.block()? {
+-            Statement::Block(b) => b,
+-            _ => unreachable!(),
+-        };
+-
+-        if !self.match_advance(&[Token::Else]) {
+-            return Ok(Statement::If { condition: condition, block: block1 });
+-        }
+-        if !self.match_advance(&[Token::LeftBrace]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
+-        }
+-
+-        let block2: Vec<Statement> = match self.block()? {
+-            Statement::Block(b) => b,
+-            _ => unreachable!(),
+-        };
+-
+-        return Ok(Statement::IfElse { condition: condition, block1: block1, block2: block2 });
+-    }
+-    fn print(&mut self) -> Result<Statement, ParseError> {
+-        let expr: Box<Expression> = self.expression()?;
+-
+-        if !self.match_advance(&[Token::Semicolon]) {
+-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+-        }
+-
+-        return Ok(Statement::Print(expr));
+-    }
+-    fn while_loop(&mut self) -> Result<Statement, ParseError> {
+-        if !self.match_advance(&[Token::LeftBracket]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
+-        }
+-
+-        let condition: Box<Expression> = self.expression()?;
+-
+-        if !self.match_advance(&[Token::RightBracket]) {
+-            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
+-        }
+-        if !self.match_advance(&[Token::LeftBrace]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
+-        }
+-
+-        let block: Vec<Statement> = match self.block()? {
+-            Statement::Block(b) => b,
+-            _ => unreachable!(),
+-        };
+-
+-        Ok(Statement::While { condition, block })
+-    }
+-    fn for_loop(&mut self) -> Result<Statement, ParseError> {
+-        if !self.match_advance(&[Token::LeftBracket]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
+-        }
+-
+-        let initializer: Statement = if self.match_advance(&[Token::Semicolon]) {
+-            Statement::Block(Vec::new())
+-        } else {
+-            self.statement()?
+-        };
+-        let condition: Box<Expression> = self.expression()?;
+-
+-        if !self.match_advance(&[Token::Semicolon]) {
+-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+-        }
+-
+-        let update: Box<Expression> = self.expression()?;
+- 
+-        if !self.match_advance(&[Token::RightBracket]) {
+-            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
+-        }
+-        if !self.match_advance(&[Token::LeftBrace]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
+-        }
+-
+-        let block: Vec<Statement> = match self.block()? {
+-            Statement::Block(b) => b,
+-            _ => unreachable!(),
+-        };
+-
+-        Ok(Statement::For { initializer: Box::new(initializer), condition, update, block })
+-    }
+-    fn function(&mut self, is_static: bool) -> Result<Statement, ParseError> {
+-        let should_override: bool = self.match_advance(&[Token::Override]);
+-
+-        let data_type: DataType = match self.peek()?.clone() {
+-            Token::DataType(d) => { self.advance()?; d },
+-            Token::Identifier(i) => { self.advance()?; DataType::Instance(i) },
+-            other => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: other.clone() })
+-        };
+-
+-        let name: String = match self.advance()? {
+-            Token::Identifier(i) => i.clone(),
+-            other => return Err(ParseError::UnexpectedToken { expected: "Function Name", got: other.clone() }),
+-        };
+-
+-        if !self.match_advance(&[Token::LeftBracket]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
+-        }
+-
+-        let mut parameters: Vec<(DataType, String)> = Vec::new();
+-
+-        loop {
+-            match self.peek()? {
+-                Token::DataType(_) => parameters.push(self.parameter()?),
+-                Token::RightBracket => break,
+-                other => return Err(ParseError::UnexpectedToken { expected: "Parameter", got: other.clone() }),
+-            }
+-        }
+-
+-        if !self.match_advance(&[Token::RightBracket]) {
+-            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
+-        }
+-        if !self.match_advance(&[Token::LeftBrace]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
+-        }
+-
+-        let block: Vec<Statement> = match self.block()? {
+-            Statement::Block(b) => b,
+-            _ => unreachable!(),
+-        };
+-
+-        Ok(Statement::Function { name, data: FunctionData { data_type, parameters, block }, should_override, is_static })
+-    }
+-    fn parameter(&mut self) -> Result<(DataType, String), ParseError> {
+-        let d: DataType = match self.advance()? {
+-            Token::DataType(d) => d.clone(),
+-            other => return Err(ParseError::UnexpectedToken { expected: "Data type", got: other.clone() }),
+-        };
+-
+-        let s: String = match self.advance()? {
+-            Token::Identifier(i) => i.clone(),
+-            other => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: other.clone() }),
+-        };
+-
+-        if self.peek()? != &Token::RightBracket && !self.match_advance(&[Token::Semicolon]) {
+-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() })
+-        }
+-
+-        Ok((d, s))
+-    }
+-    fn return_statement(&mut self) -> Result<Statement, ParseError> {
+-        let expr: Option<Box<Expression>> = self.optional_expression()?;
+-
+-        if !self.match_advance(&[Token::Semicolon]) {
+-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+-        }
+-        Ok(Statement::Return(expr))
+-    }
+-    fn class(&mut self) -> Result<Statement, ParseError> {
+-        let name: String = match self.advance()? {
+-            Token::Identifier(i) => i.clone(),
+-            other => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: other.clone() }),
+-        };
+-        let parent: Option<String> = if self.match_advance(&[Token::Colon]) {
+-            match self.advance()? {
+-                Token::Identifier(i) => Some(i.clone()),
+-                other => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: other.clone() }),
+-            }
+-        }
+-        else {
+-            None
+-        };
+-        if !self.match_advance(&[Token::LeftBrace]) {
+-            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
+-        }
+-
+-        match self.block()? {
+-            Statement::Block(b) => Ok(Statement::Class { name, block: b, parent }),
+-            _ => unreachable!(),
+-        }
+-    }
+-    fn continue_statement(&mut self) -> Result<Statement, ParseError> {
+-        if !self.match_advance(&[Token::Semicolon]) {
+-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+-        }
+-
+-        Ok(Statement::Continue)
+-    }
+-    fn break_statement(&mut self) -> Result<Statement, ParseError> {
+-        if !self.match_advance(&[Token::Semicolon]) {
+-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+-        }
+-
+-        Ok(Statement::Break)
+-    }
+-    fn optional_expression(&mut self) -> Result<Option<Box<Expression>>, ParseError> {
+-        match self.peek()? {
+-            Token::Int(_) |
+-            Token::Float(_) |
+-            Token::String(_) |
+-            Token::Null |
+-            Token::Bool(_) |
+-            Token::LNot |
+-            Token::Minus |
+-            Token::Identifier(_) |
+-            Token::LeftBracket => Ok(Some(self.expression()?)),
+-            _ => Ok(None),
+-        }
+-    }
+-    fn expression(&mut self) -> Result<Box<Expression>, ParseError> {
+-        return self.assignment();
+-    }
+-    fn assignment(&mut self) -> Result<Box<Expression>, ParseError> {
+-        let expr: Box<Expression> = self.logical_or()?;
+-
+-        if self.match_advance(&[Token::Assign]) {
+-            let value: Box<Expression> = self.assignment()?;
+-
+-            match &*expr {
+-                Expression::Variable(_) | Expression::MemberAccess { .. } => return Ok(Box::new(Expression::Assignment { target: expr, value })),
+-                _ => return Err(ParseError::UnexpectedAssignmentTarget(expr)),
+-            }
+-        }
+-
+-        Ok(expr)
+-    }
+-    fn logical_or(&mut self) -> Result<Box<Expression>, ParseError> {
+-        let mut expr: Box<Expression> = self.logical_and()?;
+-
+-        while self.match_advance(&[Token::LOr]) {
+-            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
+-                Ok(op) => op,
+-                Err(token) => {
+-                    return Err(ParseError::UnexpectedToken { expected: "Logical Or", got: token });
+-                }
+-            };
+-            let right: Box<Expression> = self.logical_and()?;
+-            expr = Box::new(Expression::Binary { 
+-                left: expr,
+-                operator: op,
+-                right: right });
+-        }
+-
+-        return Ok(expr);
+-    }
+-    fn logical_and(&mut self) -> Result<Box<Expression>, ParseError> {
+-        let mut expr: Box<Expression> = self.equality()?;
+-
+-        while self.match_advance(&[Token::LAnd]) {
+-            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
+-                Ok(op) => op,
+-                Err(token) => {
+-                    return Err(ParseError::UnexpectedToken { expected: "Logical And", got: token });
+-                }
+-            };
+-            let right: Box<Expression> = self.equality()?;
+-            expr = Box::new(Expression::Binary { 
+-                left: expr,
+-                operator: op,
+-                right: right });
+-        }
+-
+-        return Ok(expr);
+-    }
+-    fn equality(&mut self) -> Result<Box<Expression>, ParseError> {
+-        let mut expr: Box<Expression> = self.inequality()?;
+-
+-        while self.match_advance(&[Token::Equal, Token::NotEqual]) {
+-            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
+-                Ok(op) => op,
+-                Err(token) => {
+-                    return Err(ParseError::UnexpectedToken { expected: "Equality", got: token });
+-                }
+-            };
+-            let right: Box<Expression> = self.inequality()?;
+-            expr = Box::new(Expression::Binary {
+-                left: expr,
+-                operator: op,
+-                right: right
+-            });
+-        }
+-
+-        return Ok(expr);
+-    }
+-    fn inequality(&mut self) -> Result<Box<Expression>, ParseError> {
+-        let mut expr: Box<Expression> = self.term()?;
+-
+-        while self.match_advance(&[Token::Less, Token::LessEqual, Token::Greater, Token::GreaterEqual]) {
+-            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
+-                Ok(op) => op,
+-                Err(token) => {
+-                    return Err(ParseError::UnexpectedToken { expected: "Inequality", got: token });
+-                }
+-            };
+-            let right: Box<Expression> = self.term()?;
+-            expr = Box::new(Expression::Binary {
+-                left: expr,
+-                operator: op,
+-                right: right
+-            });
+-        }
+-
+-        return Ok(expr);
+-    }
+-    fn term(&mut self) -> Result<Box<Expression>, ParseError> {
+-        let mut expr: Box<Expression> = self.factor()?;
+-
+-        while self.match_advance(&[Token::Plus, Token::Minus]) {
+-            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
+-                Ok(op) => op,
+-                Err(token) => {
+-                    return Err(ParseError::UnexpectedToken { expected: "Term", got: token });
+-                }
+-            };
+-            let right: Box<Expression> = self.factor()?;
+-            expr = Box::new(Expression::Binary {
+-                left: expr,
+-                operator: op,
+-                right: right
+-            });
+-        }
+-
+-        return Ok(expr);
+-    }
+-    fn factor(&mut self) -> Result<Box<Expression>, ParseError> {
+-        let mut expr: Box<Expression> = self.unary()?;
+-
+-        while self.match_advance(&[Token::Asterisk, Token::Slash]) {
+-            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
+-                Ok(op) => op,
+-                Err(token) => {
+-                    return Err(ParseError::UnexpectedToken { expected: "Factor", got: token });
+-                }
+-            };
+-            let right: Box<Expression> = self.unary()?;
+-            expr = Box::new(Expression::Binary {
+-                left: expr,
+-                operator: op,
+-                right: right
+-            });
+-        }
+-
+-        return Ok(expr);
+-    }
+-    fn unary(&mut self) -> Result<Box<Expression>, ParseError> {
+-        if self.match_advance(&[Token::LNot, Token::Minus]) {
+-            let op: UnaryOp = match UnaryOp::try_from(self.previous()?) {
+-                Ok(op) => op,
+-                Err(token) => {
+-                    return Err(ParseError::UnexpectedToken { expected: "Unary", got: token });
+-                }
+-            };
+-            let right: Box<Expression> = self.unary()?;
+-            let expr: Box<Expression> = Box::new(Expression::Unary {
+-                operator: op,
+-                right: right
+-            });
+-            return Ok(expr);
+-        }
+-
+-        return Ok(self.call()?);
+-    }
+-    fn call(&mut self) -> Result<Box<Expression>, ParseError> {
+-        let mut expr: Box<Expression> = self.primary()?;
+-
+-        loop {
+-            if self.match_advance(&[Token::LeftBracket]) {
+-                let mut parameters: Vec<Expression> = Vec::new();
+-
+-                loop {
+-                    if self.match_advance(&[Token::RightBracket]) {
+-                        break;
+-                    }
+-
+-                    parameters.push(*self.expression()?);
+-                    if self.match_advance(&[Token::RightBracket]) {
+-                        break;
+-                    }
+-                    if !self.match_advance(&[Token::Semicolon]) {
+-                        return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+-                    }
+-                }
+-
+-                expr = Box::new(Expression::Call { callee: expr, parameters });
+-            }
+-            else if self.match_advance(&[Token::Dot]) {
+-                if let Token::Identifier(member) = self.peek()?.clone() {
+-                    expr = Box::new(Expression::MemberAccess { class: expr, member });
+-                    self.advance()?;
+-                }
+-                else {
+-                    return Err(ParseError::UnexpectedToken { expected: "Identifier", got: self.peek()?.clone() });
+-                }
+-            }
+-            else {
+-                break;
+-            }
+-        }
+-
+-        Ok(expr)
+-    }
+-    fn primary(&mut self) -> Result<Box<Expression>, ParseError> {
+-        return match self.advance()? {
+-            Token::Bool(v) => Ok(Box::new(Expression::Literal(LiteralType::Bool(*v)))),
+-            Token::Int(v) => Ok(Box::new(Expression::Literal(LiteralType::Int(*v)))),
+-            Token::Float(v) => Ok(Box::new(Expression::Literal(LiteralType::Float(*v)))),
+-            Token::String(v) => Ok(Box::new(Expression::Literal(LiteralType::String(v.clone())))),
+-            Token::Null => Ok(Box::new(Expression::Literal(LiteralType::Null))),
+-            Token::Identifier(name) => Ok(Box::new(Expression::Variable(name.clone()))),
+-            Token::LeftBracket => {
+-                let expr: Box<Expression> = self.expression()?;
+-                match self.advance() {
+-                    Ok(t) if t == &Token::RightBracket => return Ok(expr),
+-                    Ok(t) => return Err(ParseError::UnexpectedToken { expected: ")", got: t.clone() }),
+-                    Err(e) => Err(e),
+-                }
+-            },
+-            other => Err(ParseError::UnexpectedToken { expected: "Primary", got: other.clone() })
+-        };
+-    }
++use serde::{Deserialize, Serialize};
++
++use super::lexer::{Token, DataType};
++use std::convert::TryFrom;
++use std::fmt;
++
++#[derive(Debug)]
++pub enum ParseError {
++    UnexpectedToken { expected: &'static str, got: Token },
++    UnexpectedReadIndex(usize),
++    UnexpectedAssignmentTarget(Box<Expression>),
++}
++
++impl fmt::Display for ParseError {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        match self {
++            ParseError::UnexpectedToken { expected, got } =>
++                write!(f, "expected {expected}, got {got:?}"),
++            ParseError::UnexpectedReadIndex(index) =>
++                write!(f, "read past end of token stream at index {index}"),
++            ParseError::UnexpectedAssignmentTarget(expr) =>
++                write!(f, "{expr:?} is not a valid assignment target"),
++        }
++    }
++}
++
++impl std::error::Error for ParseError {}
++#[derive(Debug, Clone, PartialEq)]
++pub enum BinaryOp {
++    Add,
++    Subtract,
++    Multiply,
++    Divide,
++    Equal,
++    NotEqual,
++    Less,
++    LessEqual,
++    Greater,
++    GreaterEqual,
++    LAnd,
++    LOr,
++}
++#[derive(Debug, Clone, PartialEq)]
++pub enum UnaryOp {
++    LNot,
++    Negate,
++}
++#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
++pub enum LiteralType {
++    String(String),
++    Int(i64),
++    Float(f64),
++    Bool(bool),
++    Null,
++}
++#[derive(Debug, Clone, PartialEq)]
++pub struct VariableData {
++    pub data_type: DataType,
++    pub value: LiteralType,
++}
++#[derive(Debug, Clone, PartialEq)]
++pub struct FunctionData {
++    pub data_type: DataType,
++    pub parameters: Vec<(DataType, String)>,
++    pub block: Vec<Statement>,
++}
++#[derive(Debug, Clone, PartialEq)]
++pub enum Expression {
++    Binary {
++        left: Box<Expression>,
++        operator: BinaryOp,
++        right: Box<Expression>,
++    },
++    Unary {
++        operator: UnaryOp,
++        right: Box<Expression>,
++    },
++    Literal(LiteralType),
++    Variable(String),
++    Assignment {
++        target: Box<Expression>,
++        value: Box<Expression>,
++    },
++    Call {
++        callee: Box<Expression>,
++        parameters: Vec<Expression>,
++    },
++    MemberAccess {
++        class: Box<Expression>,
++        member: String,
++    },
++}
++#[derive(Debug, Clone, PartialEq)]
++pub enum Statement {
++    Expression(Box<Expression>),
++    Declaration { name: String, value: Box<Expression>, data_type: DataType, is_static: bool },
++    Block(Vec<Statement>),
++    If { condition: Box<Expression>, block: Vec<Statement> },
++    IfElse { condition: Box<Expression>, block1: Vec<Statement>, block2: Vec<Statement> },
++    Print(Box<Expression>),
++    While { condition: Box<Expression>, block: Vec<Statement> },
++    For { initializer: Box<Statement>, condition: Box<Expression>, update: Box<Expression>, block: Vec<Statement> },
++    Function { name: String, data: FunctionData, should_override: bool, is_static: bool },
++    Return(Option<Box<Expression>>),
++    Class { name: String, block: Vec<Statement>, parent: Option<String> },
++    Continue, Break,
++}
++
++impl TryFrom<&Token> for BinaryOp {
++    type Error = Token;
++
++    fn try_from(token: &Token) -> Result<Self, Self::Error> {
++        return match token {
++            Token::Plus => Ok(BinaryOp::Add),
++            Token::Minus => Ok(BinaryOp::Subtract),
++            Token::Asterisk => Ok(BinaryOp::Multiply),
++            Token::Slash => Ok(BinaryOp::Divide),
++            Token::Equal => Ok(BinaryOp::Equal),
++            Token::NotEqual => Ok(BinaryOp::NotEqual),
++            Token::Less => Ok(BinaryOp::Less),
++            Token::LessEqual => Ok(BinaryOp::LessEqual),
++            Token::Greater => Ok(BinaryOp::Greater),
++            Token::GreaterEqual => Ok(BinaryOp::GreaterEqual),
++            Token::LAnd => Ok(BinaryOp::LAnd),
++            Token::LOr => Ok(BinaryOp::LOr),
++            _ => Err(token.clone()),
++        }
++    }
++}
++
++impl TryFrom<&Token> for UnaryOp {
++    type Error = Token;
++
++    fn try_from(token: &Token) -> Result<Self, Self::Error> {
++        return match token {
++            Token::LNot => Ok(UnaryOp::LNot),
++            Token::Minus => Ok(UnaryOp::Negate),
++            _ => Err(token.clone()),
++        }
++    }
++}
++
++pub fn parse_tokens(tokens: Vec<Token>) -> Result<Vec<Statement>, ParseError> {
++    let mut parser: Parser = Parser::from_tokens(tokens);
++
++    let mut statements: Vec<Statement> = Vec::new();
++
++    while !parser.match_advance(&[Token::EOF]) {
++        statements.push(parser.statement()?);
++    }
++
++    Ok(statements)
++}
++
++struct Parser {
++    tokens: Vec<Token>,
++    position: usize
++}
++
++impl Default for Parser {
++    fn default() -> Self {
++        return Self {
++            tokens: Vec::new(),
++            position: 0
++        };
++    }
++}
++
++impl Parser {
++    fn new() -> Self {
++        return Default::default();
++    }
++    fn from_tokens(tokens: Vec<Token>) -> Self {
++        let mut p: Self = Self::new();
++        p.tokens = tokens;
++        return p;
++    }
++    fn peek(&self) -> Result<&Token, ParseError> {
++        self.tokens.get(self.position).ok_or(ParseError::UnexpectedReadIndex(self.position))
++    }
++    fn previous(&self) -> Result<&Token, ParseError> {
++        if self.position > 0 {
++            return self.tokens.get(self.position - 1).ok_or(ParseError::UnexpectedReadIndex(self.position - 1));
++        }
++        return Err(ParseError::UnexpectedReadIndex(usize::MAX));
++    }
++    fn advance(&mut self) -> Result<&Token, ParseError> {
++        self.position += 1;
++        self.previous()
++    }
++    fn match_advance(&mut self, tokens: &[Token]) -> bool {
++        let disc = match self.peek() {
++            Ok(v) => std::mem::discriminant(v),
++            Err(_) => return false,
++        };
++
++        for token in tokens {
++            if std::mem::discriminant(token) == disc {
++                let _ = self.advance();
++                return true;
++            }
++        }
++        return false;
++    }
++    fn statement(&mut self) -> Result<Statement, ParseError> {
++        if self.match_advance(&[Token::Let]) {
++            return self.declaration(false);
++        }
++        if self.match_advance(&[Token::LeftBrace]) {
++            return self.block();
++        }
++        if self.match_advance(&[Token::If]) {
++            return self.if_else();
++        }
++        if self.match_advance(&[Token::Print]) {
++            return self.print();
++        }
++        if self.match_advance(&[Token::While]) {
++            return self.while_loop();
++        }
++        if self.match_advance(&[Token::For]) {
++            return self.for_loop();
++        }
++        if self.match_advance(&[Token::Fun]) {
++            return self.function(false);
++        }
++        if self.match_advance(&[Token::Return]) {
++            return self.return_statement();
++        }
++        if self.match_advance(&[Token::Class]) {
++            return self.class();
++        }
++        if self.match_advance(&[Token::Continue]) {
++            return self.continue_statement();
++        }
++        if self.match_advance(&[Token::Break]) {
++            return self.break_statement();
++        }
++        if self.match_advance(&[Token::Static]) {
++        if self.match_advance(&[Token::Let]) {
++            return self.declaration(true);
++        }
++        if self.match_advance(&[Token::Fun]) {
++            return self.function(true);
++        }
++        return Err(ParseError::UnexpectedToken { expected: "'let' or 'fun' after 'static'", got: self.peek()?.clone() });
++    }
++
++        let expr: Box<Expression> = self.expression()?;
++        if !self.match_advance(&[Token::Semicolon]) {
++            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() })
++        }
++
++        return Ok(Statement::Expression(expr));
++    }
++    fn declaration(&mut self, is_static: bool) -> Result<Statement, ParseError> {
++        let nullable: bool = self.match_advance(&[Token::Nullable]);
++
++        let t: DataType = match self.advance()? {
++            Token::DataType(d) => {
++                let mut data_type: DataType = d.clone();
++                if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
++
++                data_type
++            },
++            Token::Identifier(c) => {
++                let mut data_type: DataType = DataType::Instance(c.clone());
++                if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
++
++                data_type
++            }
++            token => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: token.clone() })
++        };
++        let n: String = match self.advance()? {
++            Token::Identifier(i) => i.clone(),
++            token => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: token.clone() })
++        };
++        let v: Box<Expression> = match self.advance()? {
++            Token::Semicolon => return Ok(Statement::Declaration { name: n, value: Box::new(Expression::Literal(LiteralType::Null)), data_type: t, is_static }),
++            Token::Assign => self.expression()?,
++            token => return Err(ParseError::UnexpectedToken { expected: "';'", got: token.clone() })
++        };
++        if !self.match_advance(&[Token::Semicolon]) {
++            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
++        }
++
++        return Ok(Statement::Declaration { name: n, value: v, data_type: t, is_static });
++    }
++    fn block(&mut self) -> Result<Statement, ParseError> {
++        let mut stmts: Vec<Statement> = Vec::new();
++
++        loop {
++            match self.peek()? {
++                Token::RightBrace => { self.advance()?; return Ok(Statement::Block(stmts)); },
++                Token::EOF => return Err(ParseError::UnexpectedToken { expected: "'}'", got: Token::EOF }),
++                _ => stmts.push(self.statement()?),
++            }
++        }
++    }
++    fn if_else(&mut self) -> Result<Statement, ParseError> {
++        if !self.match_advance(&[Token::LeftBracket]) {
++            return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
++        }
++
++        let condition: Box<Expression> = self.expression()?;
++
++        if !self.match_advance(&[Token::RightBracket]) {
++            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
++        }
++        if !self.match_advance(&[Token::LeftBrace]) {
++            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
++        }
++
++        let block1: Vec<Statement> = match self.block()? {
++            Statement::Block(b) => b,
++            _ => unreachable!(),
++        };
++
++        if !self.match_advance(&[Token::Else]) {
++            return Ok(Statement::If { condition: condition, block: block1 });
++        }
++        if !self.match_advance(&[Token::LeftBrace]) {
++            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
++        }
++
++        let block2: Vec<Statement> = match self.block()? {
++            Statement::Block(b) => b,
++            _ => unreachable!(),
++        };
++
++        return Ok(Statement::IfElse { condition: condition, block1: block1, block2: block2 });
++    }
++    fn print(&mut self) -> Result<Statement, ParseError> {
++        let expr: Box<Expression> = self.expression()?;
++
++        if !self.match_advance(&[Token::Semicolon]) {
++            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
++        }
++
++        return Ok(Statement::Print(expr));
++    }
++    fn while_loop(&mut self) -> Result<Statement, ParseError> {
++        if !self.match_advance(&[Token::LeftBracket]) {
++            return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
++        }
++
++        let condition: Box<Expression> = self.expression()?;
++
++        if !self.match_advance(&[Token::RightBracket]) {
++            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
++        }
++        if !self.match_advance(&[Token::LeftBrace]) {
++            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
++        }
++
++        let block: Vec<Statement> = match self.block()? {
++            Statement::Block(b) => b,
++            _ => unreachable!(),
++        };
++
++        Ok(Statement::While { condition, block })
++    }
++    fn for_loop(&mut self) -> Result<Statement, ParseError> {
++        if !self.match_advance(&[Token::LeftBracket]) {
++            return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
++        }
++
++        let initializer: Statement = if self.match_advance(&[Token::Semicolon]) {
++            Statement::Block(Vec::new())
++        } else {
++            self.statement()?
++        };
++        let condition: Box<Expression> = self.expression()?;
++
++        if !self.match_advance(&[Token::Semicolon]) {
++            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
++        }
++
++        let update: Box<Expression> = self.expression()?;
++ 
++        if !self.match_advance(&[Token::RightBracket]) {
++            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
++        }
++        if !self.match_advance(&[Token::LeftBrace]) {
++            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
++        }
++
++        let block: Vec<Statement> = match self.block()? {
++            Statement::Block(b) => b,
++            _ => unreachable!(),
++        };
++
++        Ok(Statement::For { initializer: Box::new(initializer), condition, update, block })
++    }
++    fn function(&mut self, is_static: bool) -> Result<Statement, ParseError> {
++        let should_override: bool = self.match_advance(&[Token::Override]);
++
++        let data_type: DataType = match self.peek()?.clone() {
++            Token::DataType(d) => { self.advance()?; d },
++            Token::Identifier(i) => { self.advance()?; DataType::Instance(i) },
++            other => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: other.clone() })
++        };
++
++        let name: String = match self.advance()? {
++            Token::Identifier(i) => i.clone(),
++            other => return Err(ParseError::UnexpectedToken { expected: "Function Name", got: other.clone() }),
++        };
++
++        if !self.match_advance(&[Token::LeftBracket]) {
++            return Err(ParseError::UnexpectedToken { expected: "'('", got: self.peek()?.clone() });
++        }
++
++        let mut parameters: Vec<(DataType, String)> = Vec::new();
++
++        loop {
++            match self.peek()? {
++                Token::DataType(_) => parameters.push(self.parameter()?),
++                Token::RightBracket => break,
++                other => return Err(ParseError::UnexpectedToken { expected: "Parameter", got: other.clone() }),
++            }
++        }
++
++        if !self.match_advance(&[Token::RightBracket]) {
++            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
++        }
++        if !self.match_advance(&[Token::LeftBrace]) {
++            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
++        }
++
++        let block: Vec<Statement> = match self.block()? {
++            Statement::Block(b) => b,
++            _ => unreachable!(),
++        };
++
++        Ok(Statement::Function { name, data: FunctionData { data_type, parameters, block }, should_override, is_static })
++    }
++    fn parameter(&mut self) -> Result<(DataType, String), ParseError> {
++        let d: DataType = match self.advance()? {
++            Token::DataType(d) => d.clone(),
++            other => return Err(ParseError::UnexpectedToken { expected: "Data type", got: other.clone() }),
++        };
++
++        let s: String = match self.advance()? {
++            Token::Identifier(i) => i.clone(),
++            other => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: other.clone() }),
++        };
++
++        if self.peek()? != &Token::RightBracket && !self.match_advance(&[Token::Semicolon]) {
++            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() })
++        }
++
++        Ok((d, s))
++    }
++    fn return_statement(&mut self) -> Result<Statement, ParseError> {
++        let expr: Option<Box<Expression>> = self.optional_expression()?;
++
++        if !self.match_advance(&[Token::Semicolon]) {
++            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
++        }
++        Ok(Statement::Return(expr))
++    }
++    fn class(&mut self) -> Result<Statement, ParseError> {
++        let name: String = match self.advance()? {
++            Token::Identifier(i) => i.clone(),
++            other => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: other.clone() }),
++        };
++        let parent: Option<String> = if self.match_advance(&[Token::Colon]) {
++            match self.advance()? {
++                Token::Identifier(i) => Some(i.clone()),
++                other => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: other.clone() }),
++            }
++        }
++        else {
++            None
++        };
++        if !self.match_advance(&[Token::LeftBrace]) {
++            return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
++        }
++
++        match self.block()? {
++            Statement::Block(b) => Ok(Statement::Class { name, block: b, parent }),
++            _ => unreachable!(),
++        }
++    }
++    fn continue_statement(&mut self) -> Result<Statement, ParseError> {
++        if !self.match_advance(&[Token::Semicolon]) {
++            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
++        }
++
++        Ok(Statement::Continue)
++    }
++    fn break_statement(&mut self) -> Result<Statement, ParseError> {
++        if !self.match_advance(&[Token::Semicolon]) {
++            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
++        }
++
++        Ok(Statement::Break)
++    }
++    fn optional_expression(&mut self) -> Result<Option<Box<Expression>>, ParseError> {
++        match self.peek()? {
++            Token::Int(_) |
++            Token::Float(_) |
++            Token::String(_) |
++            Token::Null |
++            Token::Bool(_) |
++            Token::LNot |
++            Token::Minus |
++            Token::Identifier(_) |
++            Token::LeftBracket => Ok(Some(self.expression()?)),
++            _ => Ok(None),
++        }
++    }
++    fn expression(&mut self) -> Result<Box<Expression>, ParseError> {
++        return self.assignment();
++    }
++    fn assignment(&mut self) -> Result<Box<Expression>, ParseError> {
++        let expr: Box<Expression> = self.logical_or()?;
++
++        if self.match_advance(&[Token::Assign]) {
++            let value: Box<Expression> = self.assignment()?;
++
++            match &*expr {
++                Expression::Variable(_) | Expression::MemberAccess { .. } => return Ok(Box::new(Expression::Assignment { target: expr, value })),
++                _ => return Err(ParseError::UnexpectedAssignmentTarget(expr)),
++            }
++        }
++
++        Ok(expr)
++    }
++    fn logical_or(&mut self) -> Result<Box<Expression>, ParseError> {
++        let mut expr: Box<Expression> = self.logical_and()?;
++
++        while self.match_advance(&[Token::LOr]) {
++            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
++                Ok(op) => op,
++                Err(token) => {
++                    return Err(ParseError::UnexpectedToken { expected: "Logical Or", got: token });
++                }
++            };
++            let right: Box<Expression> = self.logical_and()?;
++            expr = Box::new(Expression::Binary { 
++                left: expr,
++                operator: op,
++                right: right });
++        }
++
++        return Ok(expr);
++    }
++    fn logical_and(&mut self) -> Result<Box<Expression>, ParseError> {
++        let mut expr: Box<Expression> = self.equality()?;
++
++        while self.match_advance(&[Token::LAnd]) {
++            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
++                Ok(op) => op,
++                Err(token) => {
++                    return Err(ParseError::UnexpectedToken { expected: "Logical And", got: token });
++                }
++            };
++            let right: Box<Expression> = self.equality()?;
++            expr = Box::new(Expression::Binary { 
++                left: expr,
++                operator: op,
++                right: right });
++        }
++
++        return Ok(expr);
++    }
++    fn equality(&mut self) -> Result<Box<Expression>, ParseError> {
++        let mut expr: Box<Expression> = self.inequality()?;
++
++        while self.match_advance(&[Token::Equal, Token::NotEqual]) {
++            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
++                Ok(op) => op,
++                Err(token) => {
++                    return Err(ParseError::UnexpectedToken { expected: "Equality", got: token });
++                }
++            };
++            let right: Box<Expression> = self.inequality()?;
++            expr = Box::new(Expression::Binary {
++                left: expr,
++                operator: op,
++                right: right
++            });
++        }
++
++        return Ok(expr);
++    }
++    fn inequality(&mut self) -> Result<Box<Expression>, ParseError> {
++        let mut expr: Box<Expression> = self.term()?;
++
++        while self.match_advance(&[Token::Less, Token::LessEqual, Token::Greater, Token::GreaterEqual]) {
++            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
++                Ok(op) => op,
++                Err(token) => {
++                    return Err(ParseError::UnexpectedToken { expected: "Inequality", got: token });
++                }
++            };
++            let right: Box<Expression> = self.term()?;
++            expr = Box::new(Expression::Binary {
++                left: expr,
++                operator: op,
++                right: right
++            });
++        }
++
++        return Ok(expr);
++    }
++    fn term(&mut self) -> Result<Box<Expression>, ParseError> {
++        let mut expr: Box<Expression> = self.factor()?;
++
++        while self.match_advance(&[Token::Plus, Token::Minus]) {
++            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
++                Ok(op) => op,
++                Err(token) => {
++                    return Err(ParseError::UnexpectedToken { expected: "Term", got: token });
++                }
++            };
++            let right: Box<Expression> = self.factor()?;
++            expr = Box::new(Expression::Binary {
++                left: expr,
++                operator: op,
++                right: right
++            });
++        }
++
++        return Ok(expr);
++    }
++    fn factor(&mut self) -> Result<Box<Expression>, ParseError> {
++        let mut expr: Box<Expression> = self.unary()?;
++
++        while self.match_advance(&[Token::Asterisk, Token::Slash]) {
++            let op: BinaryOp = match BinaryOp::try_from(self.previous()?) {
++                Ok(op) => op,
++                Err(token) => {
++                    return Err(ParseError::UnexpectedToken { expected: "Factor", got: token });
++                }
++            };
++            let right: Box<Expression> = self.unary()?;
++            expr = Box::new(Expression::Binary {
++                left: expr,
++                operator: op,
++                right: right
++            });
++        }
++
++        return Ok(expr);
++    }
++    fn unary(&mut self) -> Result<Box<Expression>, ParseError> {
++        if self.match_advance(&[Token::LNot, Token::Minus]) {
++            let op: UnaryOp = match UnaryOp::try_from(self.previous()?) {
++                Ok(op) => op,
++                Err(token) => {
++                    return Err(ParseError::UnexpectedToken { expected: "Unary", got: token });
++                }
++            };
++            let right: Box<Expression> = self.unary()?;
++            let expr: Box<Expression> = Box::new(Expression::Unary {
++                operator: op,
++                right: right
++            });
++            return Ok(expr);
++        }
++
++        return Ok(self.call()?);
++    }
++    fn call(&mut self) -> Result<Box<Expression>, ParseError> {
++        let mut expr: Box<Expression> = self.primary()?;
++
++        loop {
++            if self.match_advance(&[Token::LeftBracket]) {
++                let mut parameters: Vec<Expression> = Vec::new();
++
++                loop {
++                    if self.match_advance(&[Token::RightBracket]) {
++                        break;
++                    }
++
++                    parameters.push(*self.expression()?);
++                    if self.match_advance(&[Token::RightBracket]) {
++                        break;
++                    }
++                    if !self.match_advance(&[Token::Semicolon]) {
++                        return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
++                    }
++                }
++
++                expr = Box::new(Expression::Call { callee: expr, parameters });
++            }
++            else if self.match_advance(&[Token::Dot]) {
++                if let Token::Identifier(member) = self.peek()?.clone() {
++                    expr = Box::new(Expression::MemberAccess { class: expr, member });
++                    self.advance()?;
++                }
++                else {
++                    return Err(ParseError::UnexpectedToken { expected: "Identifier", got: self.peek()?.clone() });
++                }
++            }
++            else {
++                break;
++            }
++        }
++
++        Ok(expr)
++    }
++    fn primary(&mut self) -> Result<Box<Expression>, ParseError> {
++        return match self.advance()? {
++            Token::Bool(v) => Ok(Box::new(Expression::Literal(LiteralType::Bool(*v)))),
++            Token::Int(v) => Ok(Box::new(Expression::Literal(LiteralType::Int(*v)))),
++            Token::Float(v) => Ok(Box::new(Expression::Literal(LiteralType::Float(*v)))),
++            Token::String(v) => Ok(Box::new(Expression::Literal(LiteralType::String(v.clone())))),
++            Token::Null => Ok(Box::new(Expression::Literal(LiteralType::Null))),
++            Token::Identifier(name) => Ok(Box::new(Expression::Variable(name.clone()))),
++            Token::LeftBracket => {
++                let expr: Box<Expression> = self.expression()?;
++                match self.advance() {
++                    Ok(t) if t == &Token::RightBracket => return Ok(expr),
++                    Ok(t) => return Err(ParseError::UnexpectedToken { expected: ")", got: t.clone() }),
++                    Err(e) => Err(e),
++                }
++            },
++            other => Err(ParseError::UnexpectedToken { expected: "Primary", got: other.clone() })
++        };
++    }
+ }
+\ No newline at end of file
+diff --git a/src/main.rs b/src/main.rs
+index a5721bd..5ce5d5c 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,17 +1,38 @@
+ mod compiler;
+ 
+-use compiler::compile;
++use std::{ffi::OsStr, fs::File};
+ 
+-fn main() {
+-    compile("
+-    class N {
+-        let int v;
+-        fun printNum(string s;)
+-        {
+-            print s;
+-        }
++use clap::Parser;
++
++#[derive(Clone, clap::ValueEnum)]
++enum Mode {
++    Compile,
++    Run,
++}
++#[derive(Parser)]
++struct CliArgs {
++    mode: Mode,
++    file: std::path::PathBuf,
++}
++fn compile(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
++    let extension = path.extension().and_then(|ext| ext.to_str());
++    if extension != Some("tl") {
++        println!("Unexpected file extension {}. Expected .tl.", extension.unwrap_or("none"));
++        return Ok(());
+     }
+-    let instance n = N.new();
+-    
+-    n.printNum(\"test\";);");
++
++    let src: String = std::fs::read_to_string(path)?;
++    let compiled_data: compiler::CompiledData = compiler::compile(&src)?;
++
++    let output_path = path.with_extension("tb");
++    let file: File = File::create(&output_path)?;
++    let writer = std::io::BufWriter::new(file);
++
++    bincode::serialize_into(writer, &compiled_data)?;
++
++    println!("Compiled {} successfully", output_path.display());
++
++    Ok(())
++}
++fn main() {
+ }
+\ No newline at end of file

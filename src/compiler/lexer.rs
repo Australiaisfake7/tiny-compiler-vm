@@ -1,3 +1,4 @@
+use std::fmt;
 use std::str::Chars;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +29,14 @@ pub struct LexError {
     _line: usize,
     _character: usize,
 }
+
+impl fmt::Display for LexError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} (line {}, character {})", self._message, self._line, self._character)
+    }
+}
+
+impl std::error::Error for LexError {}
 
 struct Scanner<'a> {
     source: Chars<'a>,

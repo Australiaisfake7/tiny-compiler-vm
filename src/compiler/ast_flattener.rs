@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::fmt;
+use serde::{Serialize, Deserialize};
 
 use crate::compiler::{lexer::DataType, parser::{BinaryOp, Expression, FunctionData, LiteralType, Statement, UnaryOp}};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 enum OpCode {
     PushConst(LiteralType), Pop(usize),
     LNot, Negate, Add, Subtract, Multiply, Divide,
@@ -30,6 +32,62 @@ pub enum FlattenError {
     UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
     ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>),
 }
+
+impl fmt::Display for FlattenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FlattenError::UndeclaredVariable(name) => write!(f, "undeclared variable '{name}'"),
+            FlattenError::UndeclaredFunction(name) => write!(f, "undeclared function '{name}'"),
+            FlattenError::UndeclaredClass(name) => write!(f, "undeclared class '{name}'"),
+            FlattenError::InvalidFunctionCallee(callee) => write!(f, "cannot call {callee:?} as a function"),
+            FlattenError::ContinueOutsideLoop => write!(f, "'continue' used outside of a loop"),
+            FlattenError::BreakOutsideLoop => write!(f, "'break' used outside of a loop"),
+            FlattenError::Shadowing(name) => write!(f, "'{name}' shadows an existing declaration"),
+            FlattenError::FunctionDeclarationInsideScope(name) =>
+                write!(f, "function '{name}' declared inside a nested scope"),
+            FlattenError::ClassDeclarationInsideScope(name) =>
+                write!(f, "class '{name}' declared inside a nested scope"),
+            FlattenError::UnexpectedClassMember(statement) =>
+                write!(f, "{statement:?} is not a valid class member"),
+            FlattenError::UnexpectedOverride(name) =>
+                write!(f, "'{name}' is marked override but does not override anything"),
+            FlattenError::UndeclaredClassVar(name) => write!(f, "undeclared class variable '{name}'"),
+            FlattenError::UndeclaredClassFunction(name) => write!(f, "undeclared class function '{name}'"),
+            FlattenError::UnexpectedBinaryOpOpCode(opcode) =>
+                write!(f, "unexpected opcode {opcode:?} produced for binary operator"),
+            FlattenError::UnexpectedBinaryOpOperands { left, operator, right } =>
+                write!(f, "cannot apply {operator:?} to operands of type {left:?} and {right:?}"),
+            FlattenError::UnexpectedUnaryOpOperands { operator, operand } =>
+                write!(f, "cannot apply {operator:?} to operand of type {operand:?}"),
+            FlattenError::UnexpectedParameterCount { callee, expected, received } =>
+                write!(f, "{callee:?} expects {expected} parameter(s), but {received} were given"),
+            FlattenError::ExpressionIsNotClass(expr) => write!(f, "{expr:?} is not a class instance"),
+            FlattenError::StaticOutsideClass(name) =>
+                write!(f, "'{name}' is marked static but declared outside a class"),
+            FlattenError::UnexpectedParameterType { callee, expected, received, index } =>
+                write!(f, "parameter {index} of {callee:?} expects type {expected:?}, but received {received:?}"),
+            FlattenError::UnexpectedDeclarationValueType { variable, expected, received } =>
+                write!(f, "'{variable}' is declared as {expected:?}, but assigned a value of type {received:?}"),
+            FlattenError::UnexpectedAssignmentValueType { variable, expected, received } =>
+                write!(f, "'{variable}' is of type {expected:?}, but assigned a value of type {received:?}"),
+            FlattenError::UnexpectedReturnValueType { func, expected, received } =>
+                write!(f, "function '{func}' returns {expected:?}, but a value of type {received:?} was returned"),
+            FlattenError::ReturnOutsideFunction => write!(f, "'return' used outside of a function"),
+            FlattenError::MissingReturnStatement(name) =>
+                write!(f, "function '{name}' is missing a return statement on some code path"),
+            FlattenError::UnpatchedConstructor(name) => write!(f, "class '{name}' has no constructor patched in"),
+            FlattenError::ParentIsSelf(name) => write!(f, "class '{name}' cannot inherit from itself"),
+            FlattenError::UnexpectedOverrideSignature { name, expected, received } =>
+                write!(f, "'{name}' overrides with signature {received:?}, but the parent declares {expected:?}"),
+            FlattenError::ReservedKeyword(name) =>
+                write!(f, "'{name}' is a reserved keyword and cannot be used as an identifier"),
+            FlattenError::UnexpectedAssignmentTarget(expr) => write!(f, "{expr:?} is not a valid assignment target"),
+        }
+    }
+}
+
+impl std::error::Error for FlattenError {}
+
 struct ClassData {
     vars: Vec<(String, DataType)>,
     funcs: HashMap<String, (usize, DataType, Vec<DataType>, bool)>,
@@ -38,6 +96,7 @@ struct ClassData {
     constructor: usize,
     id: usize,
 }
+#[derive(Serialize, Deserialize)]
 pub struct CompiledData {
     pub opcodes: Vec<OpCode>,
     pub vtables: Vec<Vec<usize>>,

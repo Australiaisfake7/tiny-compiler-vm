@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use super::lexer::{Token, DataType};
 use std::convert::TryFrom;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -7,6 +10,21 @@ pub enum ParseError {
     UnexpectedReadIndex(usize),
     UnexpectedAssignmentTarget(Box<Expression>),
 }
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseError::UnexpectedToken { expected, got } =>
+                write!(f, "expected {expected}, got {got:?}"),
+            ParseError::UnexpectedReadIndex(index) =>
+                write!(f, "read past end of token stream at index {index}"),
+            ParseError::UnexpectedAssignmentTarget(expr) =>
+                write!(f, "{expr:?} is not a valid assignment target"),
+        }
+    }
+}
+
+impl std::error::Error for ParseError {}
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOp {
     Add,
@@ -27,7 +45,7 @@ pub enum UnaryOp {
     LNot,
     Negate,
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LiteralType {
     String(String),
     Int(i64),
