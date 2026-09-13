@@ -1,10 +1,10 @@
 use parser::Statement;
 use lexer::Token;
-pub use ast_flattener::CompiledData;
+pub use ast_flattener::{CompiledData, OpCode};
 
 mod lexer;
 mod parser;
-mod ast_flattener;
+pub mod ast_flattener;
 
 pub fn compile(source: &str) -> Result<CompiledData, Box<dyn std::error::Error>> {
     let tokens: Vec<Token> = lexer::lex_chars(source.chars())?;

@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use crate::compiler::{lexer::DataType, parser::{BinaryOp, Expression, FunctionData, LiteralType, Statement, UnaryOp}};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum OpCode {
+pub enum OpCode {
     PushConst(LiteralType), Pop(usize),
     LNot, Negate, Add, Subtract, Multiply, Divide,
     Equal, Greater, GreaterEqual, Less, LessEqual, NotEqual,
