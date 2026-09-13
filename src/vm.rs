@@ -1,11 +1,13 @@
 use crate::{STACK_SIZE, compiler::{CompiledData, OpCode}};
 use std::fmt;
 
+#[derive(Default)]
 enum Value {
     Int(i32),
     Float(f32),
     String(String),
     Bool(bool),
+    #[default]
     Null,
 }
 #[derive(Debug)]
@@ -30,13 +32,13 @@ impl Stack {
     fn new() -> Self {
         Stack { data: std::array::from_fn(|_| Value::Null), address: 0 }
     }
-    fn pop(&mut self) -> Result<(), VmError> {
+    fn pop(&mut self) -> Result<Value, VmError> {
         if self.address == 0 {
             return Err(VmError::StackUnderflow);
         }
 
         self.address -= 1;
-        Ok(())
+        Ok(std::mem::take(self.data.get_mut(self.address).unwrap()))
     }
     fn push(&mut self, value: Value) -> Result<(), VmError> {
         if self.address >= STACK_SIZE {
