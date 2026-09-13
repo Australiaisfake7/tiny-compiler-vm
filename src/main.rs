@@ -1,8 +1,12 @@
 mod compiler;
+mod vm;
 
-use std::{ffi::OsStr, fs::File};
+use std::fs::File;
+use crate::compiler::CompiledData;
 
 use clap::Parser;
+
+const STACK_SIZE: usize = 1024;
 
 #[derive(Clone, clap::ValueEnum)]
 enum Mode {
@@ -22,7 +26,7 @@ fn compile(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let src: String = std::fs::read_to_string(path)?;
-    let compiled_data: compiler::CompiledData = compiler::compile(&src)?;
+    let compiled_data: CompiledData = compiler::compile(&src)?;
 
     let output_path = path.with_extension("tb");
     let file: File = File::create(&output_path)?;
