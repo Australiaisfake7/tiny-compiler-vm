@@ -10,12 +10,13 @@ enum Value {
 }
 #[derive(Debug)]
 enum VmError {
-    StackMissingValues { opcode: OpCode, stack_size: usize },
+    StackUnderflow, StackOverflow,
 }
 impl fmt::Display for VmError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            VmError::StackMissingValues { opcode, stack_size } => write!(f, "Stack of size {stack_size} missing values for opcode {opcode:?}"),
+            VmError::StackUnderflow => write!(f, "stack underflow"),
+            VmError::StackOverflow => write!(f, "stack overflow"),
         }
     }
 }
@@ -25,21 +26,34 @@ struct Stack {
     address: usize,
 }
 
+impl Stack {
+    fn new() -> Self {
+        Stack { data: std::array::from_fn(|_| Value::Null), address: 0 }
+    }
+    fn pop(&mut self) -> Result<(), VmError> {
+        if self.address == 0 {
+            return Err(VmError::StackUnderflow);
+        }
+
+        self.address -= 1;
+        Ok(())
+    }
+    fn push(&mut self, value: Value) -> Result<(), VmError> {
+        if self.address >= STACK_SIZE {
+            return Err(VmError::StackOverflow);
+        }
+
+        *self.data.get_mut(self.address).unwrap() = value;
+        Ok(())
+    }
+}
+
 pub fn excecute(data: CompiledData) {
-    let stack: Stack = Stack { data: [Null; STACK_SIZE], address: 0 };
+    let mut stack: Stack = Stack::new();
     for opcode in data.opcodes {
         excecute_opcode(&opcode, &mut stack);
     }
 }
-fn excecute_opcode(opcode: &OpCode, stack: &mut Stack) -> Result<(), Box<dyn std::error::Error>> {
-    match opcode {
-        OpCode::Add => {
-            if stack.address < 2 {
-                return Err(VmError::StackMissingValues { opcode: OpCode::Add, stack_size: stack.address });
-            } 
-            *stack.data.get_mut(stack.address - 2).unwrap() = stack.data.get(stack.address - 2) + stack.data.get(stack.address - 1);
-            stack.address -= 1;
-        },
-
-    }
+fn excecute_opcode(opcode: &OpCode, stack: &mut Stack) -> Result<(), VmError> {
+    
 }
