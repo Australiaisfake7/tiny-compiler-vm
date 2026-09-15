@@ -1,7 +1,7 @@
 use crate::{STACK_SIZE, compiler::{CompiledData, OpCode, LiteralType}};
 use std::fmt;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone)]
 enum Value {
     Int(i64),
     Float(f64),
@@ -17,7 +17,7 @@ enum VmError {
     NoValueOnStack,
     TypeMismatchUnary { opcode: String, operand: Value },
     TypeMismatchBinary { opcode: String, left: Value, right: Value },
-    TypeMisMatchJump(Value),
+    TypeMismatchJump(Value),
     JumpOutOfBounds(usize),
 }
 
@@ -28,7 +28,7 @@ impl fmt::Display for VmError {
             VmError::NoValueOnStack => write!(f, "no value on stack"),
             VmError::TypeMismatchUnary { opcode, operand } => write!(f, "type mismatch of value {operand:?} with opcode {opcode}"),
             VmError::TypeMismatchBinary { opcode, left, right } => write!(f, "type mismatch of values {left:?} and {right:?} with opcode {opcode}"),
-            VmError::TypeMisMatchJump(operand) => write!(f, "type mismatch for conditional jump {operand:?}"),
+            VmError::TypeMismatchJump(operand) => write!(f, "type mismatch for conditional jump {operand:?}"),
             VmError::JumpOutOfBounds(index) => write!(f, "jump index {index} out of bounds"),
         }
     }
@@ -114,8 +114,8 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize) -> Resul
             stack.push(result)?;
         },
         OpCode::Jump(index) => { *ptr = *index; },
-        OpCode::JumpIfFalse { index, pop } => jump_conditonal(stack, *index, ptr, &false, *pop)?,
-        OpCode::JumpIfTrue { index, pop } => jump_conditonal(stack, *index, ptr, &true, *pop)?,
+        OpCode::JumpIfFalse { index, pop } => jump_conditonal(stack, *index, ptr, false, *pop)?,
+        OpCode::JumpIfTrue { index, pop } => jump_conditonal(stack, *index, ptr, true, *pop)?,
         OpCode::PushConst(lt) => {
             let value: Value = match lt {
                 LiteralType::Null => Value::Null,
@@ -179,16 +179,18 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, (Value, Va
     }
 }
 
-fn jump_conditonal(stack: &mut Stack, index: usize, ptr: &mut usize, jump_on: &bool, pop: bool) -> Result<(), VmError> {
-    let condition: &Value = if pop { &stack.pop()? } else { stack.peek()? };
+fn jump_conditonal(stack: &mut Stack, index: usize, ptr: &mut usize, jump_on: bool, pop: bool) -> Result<(), VmError> {
+    let b: bool = match stack.peek()? {
+        Value::Bool(b) => *b,
+        v => return Err(VmError::TypeMismatchJump(v.clone())),
+    };
 
-    if let Value::Bool(b) = condition {
-        if b == jump_on {
-            *ptr = index;   
-        }
-
-        return Ok(());
+    if pop { 
+        stack.pop()?;
+    }
+    if b == jump_on {
+        *ptr = index;
     }
 
-    Err(VmError::TypeMisMatchJump(condition.clone()))
+    Ok(())
 }
