@@ -36,6 +36,18 @@ impl fmt::Display for VmError {
 
 impl std::error::Error for VmError {}
 
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Bool(b) => write!(f, "{b}"),
+            Value::Null => write!(f, "null"),
+            Value::Int(i) => write!(f, "{i}"),
+            Value::Float(fl) => write!(f, "{fl}"),
+            Value::String(s) => write!(f, "{s}"),
+        }
+    }
+}
 struct Stack {
     data: [Value; STACK_SIZE],
     address: usize,
@@ -127,6 +139,7 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize) -> Resul
             stack.push(value)?;
         },
         OpCode::Pop(n) => stack.pop_n(*n)?,
+        OpCode::Print => println!("{}", stack.pop()?),
     };
 
     Ok(())
