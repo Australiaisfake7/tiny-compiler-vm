@@ -19,6 +19,7 @@ enum VmError {
     TypeMismatchBinary { opcode: String, left: Value, right: Value },
     TypeMismatchJump(Value),
     JumpOutOfBounds(usize),
+    StackIndexOutOfBounds(usize),
 }
 
 impl fmt::Display for VmError {
@@ -86,6 +87,21 @@ impl Stack {
 
         Ok(self.data.get(self.address - 1).unwrap())
     }
+    fn read(&self, index: usize) -> Result<&Value, VmError> {
+        if let Some(v) = self.data.get(index) {
+            return Ok(v);
+        }
+
+        Err(VmError::StackIndexOutOfBounds(index))
+    }
+    fn write(&mut self, index: usize, value: Value) -> Result<(), VmError> {
+        if let Some(v) = self.data.get_mut(index) {
+            *v = value;
+            return Ok(());
+        }
+
+        Err(VmError::StackIndexOutOfBounds(index))
+    }
 }
 
 pub fn excecute(data: CompiledData) -> Result<(), VmError> {
@@ -111,7 +127,6 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize) -> Resul
                 })?;
             stack.push(result)?;
         }
-
         OpCode::Add | OpCode::Subtract | OpCode::Multiply | OpCode::Divide
         | OpCode::Equal | OpCode::NotEqual
         | OpCode::Less | OpCode::LessEqual | OpCode::Greater | OpCode::GreaterEqual => {
@@ -140,6 +155,12 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize) -> Resul
         },
         OpCode::Pop(n) => stack.pop_n(*n)?,
         OpCode::Print => println!("{}", stack.pop()?),
+        OpCode::GetVar(i) => {
+            stack.push(stack.read(*i)?.clone())?;
+        },
+        OpCode::SetVar(i) => {
+            stack.write(*i, stack.pop()?)?;
+        },
     };
 
     Ok(())
