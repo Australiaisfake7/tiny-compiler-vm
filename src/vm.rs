@@ -1,10 +1,10 @@
-use crate::{STACK_SIZE, compiler::{CompiledData, OpCode}};
+use crate::{STACK_SIZE, compiler::{CompiledData, OpCode, LiteralType}};
 use std::fmt;
 
 #[derive(Debug, Default, PartialEq)]
 enum Value {
-    Int(i32),
-    Float(f32),
+    Int(i64),
+    Float(f64),
     String(String),
     Bool(bool),
     #[default]
@@ -53,6 +53,14 @@ impl Stack {
 
         self.address -= 1;
         Ok(std::mem::take(self.data.get_mut(self.address).unwrap()))
+    }
+    fn pop_n(&mut self, n: usize) -> Result<(), VmError> {
+        if self.address < n {
+            return Err(VmError::NoValueOnStack);
+        }
+
+        self.address -= n;
+        Ok(())
     }
     fn push(&mut self, value: Value) -> Result<(), VmError> {
         *self.data.get_mut(self.address).ok_or(VmError::StackOverflow)? = value;
@@ -108,6 +116,17 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize) -> Resul
         OpCode::Jump(index) => { *ptr = *index; },
         OpCode::JumpIfFalse { index, pop } => jump_conditonal(stack, *index, ptr, &false, *pop)?,
         OpCode::JumpIfTrue { index, pop } => jump_conditonal(stack, *index, ptr, &true, *pop)?,
+        OpCode::PushConst(lt) => {
+            let value: Value = match lt {
+                LiteralType::Null => Value::Null,
+                LiteralType::Bool(b) => Value::Bool(*b),
+                LiteralType::Int(i) => Value::Int(*i),
+                LiteralType::Float(f) => Value::Float(*f),
+                LiteralType::String(s) => Value::String(s.clone()),
+            };
+            stack.push(value)?;
+        },
+        OpCode::Pop(n) => stack.pop_n(*n)?,
     };
 
     Ok(())
