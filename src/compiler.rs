@@ -1,6 +1,7 @@
 use parser::Statement;
 use lexer::Token;
 pub use ast_flattener::{CompiledData, OpCode};
+pub use parser::LiteralType;
 
 mod lexer;
 mod parser;
