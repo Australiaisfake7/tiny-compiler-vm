@@ -20,6 +20,7 @@ enum VmError {
     TypeMismatchJump(Value),
     JumpOutOfBounds(usize),
     StackIndexOutOfBounds(usize),
+    GlobalIndexOutOfBounds(usize),
 }
 
 impl fmt::Display for VmError {
@@ -31,6 +32,8 @@ impl fmt::Display for VmError {
             VmError::TypeMismatchBinary { opcode, left, right } => write!(f, "type mismatch of values {left:?} and {right:?} with opcode {opcode}"),
             VmError::TypeMismatchJump(operand) => write!(f, "type mismatch for conditional jump {operand:?}"),
             VmError::JumpOutOfBounds(index) => write!(f, "jump index {index} out of bounds"),
+            VmError::StackIndexOutOfBounds(index) => write!(f, "stack index {index} out of bounds"),
+            VmError::GlobalIndexOutOfBounds(index) => write!(f, "global index {index} out of bounds"),
         }
     }
 }
@@ -107,16 +110,17 @@ impl Stack {
 pub fn excecute(data: CompiledData) -> Result<(), VmError> {
     let mut stack: Stack = Stack::new();
     let mut ptr: usize = 0;
+    let mut global_vars: Vec<Value> = Vec::new();
     loop {
         let opcode: &OpCode = data.opcodes.get(ptr).ok_or(VmError::JumpOutOfBounds(ptr))?;
         ptr += 1;
-        excecute_opcode(opcode, &mut stack, &mut ptr)?;
+        excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars)?;
     }
 
     Ok(())
 }
 
-fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize) -> Result<(), VmError> {
+fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>) -> Result<(), VmError> {
     match opcode {
         OpCode::LNot | OpCode::Negate => {
             let a = stack.pop()?;
@@ -161,6 +165,9 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize) -> Resul
         OpCode::SetVar(i) => {
             stack.write(*i, stack.pop()?)?;
         },
+        OpCode::DefineGlobal => global_vars.push(stack.pop()?),
+        OpCode::GetGlobal(i) => stack.push(global_vars.get(*i).map(|v| v.clone()).ok_or(VmError::GlobalIndexOutOfBounds(*i))?)?,
+        OpCode::SetGlobal(i) => *global_vars.get_mut(*i).ok_or(VmError::GlobalIndexOutOfBounds(*i))? = stack.pop()?,
     };
 
     Ok(())
