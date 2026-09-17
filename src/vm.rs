@@ -1,7 +1,15 @@
 use crate::{STACK_SIZE, compiler::{CompiledData, OpCode, LiteralType}};
-use std::fmt;
+use std::{cell::RefCell, rc::Rc, fmt};
 
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Debug)]
+struct Instance {
+    id: usize,
+    fields: Vec<Value>,
+}
+
+type InstanceRef = Rc<RefCell<Instance>>;
+
+#[derive(Debug, Default, Clone)]
 enum Value {
     Int(i64),
     Float(f64),
@@ -9,6 +17,21 @@ enum Value {
     Bool(bool),
     #[default]
     Null,
+    Instance(InstanceRef),
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => a == b,
+            (Value::Float(a), Value::Float(b)) => a == b,
+            (Value::String(a), Value::String(b)) => a == b,
+            (Value::Bool(a), Value::Bool(b)) => a == b,
+            (Value::Null, Value::Null) => true,
+            (Value::Instance(a), Value::Instance(b)) => Rc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -53,6 +76,7 @@ impl fmt::Display for Value {
             Value::Int(i) => write!(f, "{i}"),
             Value::Float(fl) => write!(f, "{fl}"),
             Value::String(s) => write!(f, "{s}"),
+            Value::Instance(i) => write!(f, "instance of class {}", i.borrow().id),
         }
     }
 }
