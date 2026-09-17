@@ -21,6 +21,8 @@ enum VmError {
     JumpOutOfBounds(usize),
     StackIndexOutOfBounds(usize),
     GlobalIndexOutOfBounds(usize),
+    RebaseOutsideStack(usize),
+    NoAddressOnCallStack,
 }
 
 impl fmt::Display for VmError {
@@ -34,6 +36,8 @@ impl fmt::Display for VmError {
             VmError::JumpOutOfBounds(index) => write!(f, "jump index {index} out of bounds"),
             VmError::StackIndexOutOfBounds(index) => write!(f, "stack index {index} out of bounds"),
             VmError::GlobalIndexOutOfBounds(index) => write!(f, "global index {index} out of bounds"),
+            VmError::RebaseOutsideStack(index) => write!(f, "attempted to rebase stack to index {index} which is outside stack"),
+            VmError::NoAddressOnCallStack => write!(f, "no return address on call stack"),
         }
     }
 }
@@ -54,41 +58,42 @@ impl fmt::Display for Value {
 }
 struct Stack {
     data: [Value; STACK_SIZE],
-    address: usize,
+    size: usize,
+    base: usize,
 }
 
 impl Stack {
     fn new() -> Self {
-        Stack { data: std::array::from_fn(|_| Value::Null), address: 0 }
+        Stack { data: std::array::from_fn(|_| Value::Null), size: 0, base: 0 }
     }
     
     fn pop(&mut self) -> Result<Value, VmError> {
-        if self.address == 0 {
+        if self.size <= self.base {
             return Err(VmError::NoValueOnStack);
         }
 
-        self.address -= 1;
-        Ok(std::mem::take(self.data.get_mut(self.address).unwrap()))
+        self.size -= 1;
+        Ok(std::mem::take(self.data.get_mut(self.size).unwrap()))
     }
     fn pop_n(&mut self, n: usize) -> Result<(), VmError> {
-        if self.address < n {
+        if self.size - self.base < n {
             return Err(VmError::NoValueOnStack);
         }
 
-        self.address -= n;
+        self.size -= n;
         Ok(())
     }
     fn push(&mut self, value: Value) -> Result<(), VmError> {
-        *self.data.get_mut(self.address).ok_or(VmError::StackOverflow)? = value;
-        self.address += 1;
+        *self.data.get_mut(self.size).ok_or(VmError::StackOverflow)? = value;
+        self.size += 1;
         Ok(())
     }
     fn peek(&self) -> Result<&Value, VmError> {
-        if self.address == 0 {
+        if self.size <= self.base {
             return Err(VmError::NoValueOnStack)
         }
 
-        Ok(self.data.get(self.address - 1).unwrap())
+        Ok(self.data.get(self.size - 1).unwrap())
     }
     fn read(&self, index: usize) -> Result<&Value, VmError> {
         if let Some(v) = self.data.get(index) {
@@ -105,22 +110,31 @@ impl Stack {
 
         Err(VmError::StackIndexOutOfBounds(index))
     }
+    fn rebase(&mut self, index: usize) -> Result<(), VmError> {
+        if self.size < index {
+            return Err(VmError::RebaseOutsideStack(index));
+        }
+
+        self.base = index;
+        Ok(())
+    }
 }
 
 pub fn excecute(data: CompiledData) -> Result<(), VmError> {
     let mut stack: Stack = Stack::new();
     let mut ptr: usize = 0;
     let mut global_vars: Vec<Value> = Vec::new();
+    let mut call_stack: Vec<(usize, usize)> = Vec::new();
     loop {
         let opcode: &OpCode = data.opcodes.get(ptr).ok_or(VmError::JumpOutOfBounds(ptr))?;
         ptr += 1;
-        excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars)?;
+        excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack)?;
     }
 
     Ok(())
 }
 
-fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>) -> Result<(), VmError> {
+fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>) -> Result<(), VmError> {
     match opcode {
         OpCode::LNot | OpCode::Negate => {
             let a = stack.pop()?;
@@ -168,6 +182,28 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
         OpCode::DefineGlobal => global_vars.push(stack.pop()?),
         OpCode::GetGlobal(i) => stack.push(global_vars.get(*i).map(|v| v.clone()).ok_or(VmError::GlobalIndexOutOfBounds(*i))?)?,
         OpCode::SetGlobal(i) => *global_vars.get_mut(*i).ok_or(VmError::GlobalIndexOutOfBounds(*i))? = stack.pop()?,
+        OpCode::Call { index, parameters } => {
+            if stack.size < *parameters {
+                return Err(VmError::NoValueOnStack);
+            }
+            call_stack.push((*ptr, stack.base));
+            *ptr = *index;
+            stack.base = stack.size - *parameters;
+        },
+        OpCode::Return => {
+            if let Some((index, base)) = call_stack.pop() {
+                let value: Value = stack.pop()?;
+                stack.pop_n(stack.size - stack.base)?;
+
+                stack.rebase(base)?;
+                *ptr = index;
+
+                stack.push(value)?;
+            }
+            else {
+                return Err(VmError::NoAddressOnCallStack);
+            }
+        },
     };
 
     Ok(())
