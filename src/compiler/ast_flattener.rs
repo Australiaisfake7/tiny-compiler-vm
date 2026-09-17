@@ -15,7 +15,6 @@ pub enum OpCode {
     Call { index: usize, parameters: usize }, CallVirtual { slot: usize, parameters: usize },
     Return, Print,
     GetMember(usize), SetMember(usize),
-    NewStack, PopStack,
     NewInstance(usize), 
 }
 #[derive(Debug)]
@@ -183,7 +182,6 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                     },
                 };
 
-                opcodes.push(OpCode::PopStack);
                 opcodes.push(OpCode::Return);
             }
             else {
@@ -382,7 +380,6 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             } 
 
             opcodes.push(OpCode::Jump(0));
-            opcodes.push(OpCode::NewStack);
 
             if let Some(n) = parent {
                 if let Some(p) = classes.get(n) {
@@ -481,7 +478,6 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             }
 
             opcodes.push(OpCode::GetVar(0));
-            opcodes.push(OpCode::PopStack);
             opcodes.push(OpCode::Return);
             *opcodes.get_mut(jump_index).unwrap() = OpCode::Jump(opcodes.len());
         }
@@ -799,7 +795,6 @@ fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, 
         func_vars.push((name.clone(), data_type.clone()));
     }
 
-    opcodes.push(OpCode::NewStack);
 
     let r: bool = flatten_block(&data.block, opcodes, global_vars, &mut func_vars, funcs, classes, loop_starts, depth, Some((name, &data.data_type)))?;
 
@@ -809,7 +804,6 @@ fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, 
         }
 
         flatten_expression(&Expression::Literal(LiteralType::Null), opcodes, global_vars, &mut func_vars, funcs, classes)?;
-        opcodes.push(OpCode::PopStack);
         opcodes.push(OpCode::Return);
     }    
     
