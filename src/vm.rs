@@ -143,7 +143,7 @@ impl Stack {
         Ok(())
     }
     fn rebased_size(&self) -> usize {
-        self.size - self.base;
+        self.size - self.base
     }
 }
 
