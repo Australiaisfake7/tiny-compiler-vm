@@ -142,6 +142,9 @@ impl Stack {
         self.base = index;
         Ok(())
     }
+    fn rebased_size(&self) -> usize {
+        self.size - self.base;
+    }
 }
 
 pub fn excecute(data: CompiledData) -> Result<(), VmError> {
@@ -207,7 +210,7 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
         OpCode::GetGlobal(i) => stack.push(global_vars.get(*i).map(|v| v.clone()).ok_or(VmError::GlobalIndexOutOfBounds(*i))?)?,
         OpCode::SetGlobal(i) => *global_vars.get_mut(*i).ok_or(VmError::GlobalIndexOutOfBounds(*i))? = stack.pop()?,
         OpCode::Call { index, parameters } => {
-            if stack.size < *parameters {
+            if stack.rebased_size() < *parameters {
                 return Err(VmError::NoValueOnStack);
             }
             call_stack.push((*ptr, stack.base));
@@ -217,7 +220,7 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
         OpCode::Return => {
             if let Some((index, base)) = call_stack.pop() {
                 let value: Value = stack.pop()?;
-                stack.pop_n(stack.size - stack.base)?;
+                stack.pop_n(stack.rebased_size())?;
 
                 stack.rebase(base)?;
                 *ptr = index;
