@@ -41,6 +41,7 @@ enum VmError {
     TypeMismatchUnary { opcode: String, operand: Value },
     TypeMismatchBinary { opcode: String, left: Value, right: Value },
     TypeMismatchJump(Value),
+    TypeMismatchCallVirtual(Value),
     JumpOutOfBounds(usize),
     StackIndexOutOfBounds(usize),
     GlobalIndexOutOfBounds(usize),
@@ -113,11 +114,11 @@ impl Stack {
         Ok(())
     }
     fn peek(&self) -> Result<&Value, VmError> {
-        if self.size <= self.base {
-            return Err(VmError::NoValueOnStack)
+        if self.rebased_size() == 0 {
+            return Err(VmError::NoValueOnStack);
         }
 
-        Ok(self.data.get(self.size - 1).unwrap())
+        self.read(self.size - 1)
     }
     fn read(&self, index: usize) -> Result<&Value, VmError> {
         if let Some(v) = self.data.get(index) {
@@ -155,13 +156,13 @@ pub fn excecute(data: CompiledData) -> Result<(), VmError> {
     loop {
         let opcode: &OpCode = data.opcodes.get(ptr).ok_or(VmError::JumpOutOfBounds(ptr))?;
         ptr += 1;
-        excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack)?;
+        excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack, &mut data.vtables)?;
     }
 
     Ok(())
 }
 
-fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>) -> Result<(), VmError> {
+fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>, vtables: &mut Vec<Vec<usize>>) -> Result<(), VmError> {
     match opcode {
         OpCode::LNot | OpCode::Negate => {
             let a = stack.pop()?;
@@ -215,7 +216,7 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
             }
             call_stack.push((*ptr, stack.base));
             *ptr = *index;
-            stack.base = stack.size - *parameters;
+            stack.rebase(stack.size - *parameters);
         },
         OpCode::Return => {
             if let Some((index, base)) = call_stack.pop() {
@@ -229,6 +230,19 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
             }
             else {
                 return Err(VmError::NoAddressOnCallStack);
+            }
+        },
+        OpCode::CallVirtual { slot, parameters } => {
+            if stack.rebased_size() < *parameters {
+                return Err(VmError::NoValueOnStack);
+            }
+            if let Value::Instance(i) = stack.read(stack.rebased_size() - *parameters + 1)? {
+                call_stack.push((*ptr, stack.base));
+                *ptr = *vtables.get(i.borrow().id).unwrap().get(*slot).unwrap();
+                stack.rebase(stack.size - *parameters);
+            }
+            else {
+                return Err(VmError::TypeMismatchCallVirtual(stack.peek()?.clone()));
             }
         },
     };
