@@ -229,7 +229,7 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
             if stack.rebased_size() < *parameters {
                 return Err(VmError::NoValueOnStack);
             }
-            if let Value::Instance(i) = stack.get(stack.rebased_size() - *parameters + 1)? {
+            if let Value::Instance(i) = stack.get(stack.size - *parameters)? {
                 call_stack.push((*ptr, stack.base));
                 *ptr = *vtables.get(i.borrow().id).unwrap().get(*slot).unwrap();
                 stack.rebase(stack.size - *parameters);
