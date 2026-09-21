@@ -41,12 +41,13 @@ enum VmError {
     TypeMismatchUnary { opcode: String, operand: Value },
     TypeMismatchBinary { opcode: String, left: Value, right: Value },
     TypeMismatchJump(Value),
-    TypeMismatchCallVirtual(Value),
+    TypeMismatchMemberAccess(Value),
     JumpOutOfBounds(usize),
     StackIndexOutOfBounds(usize),
     GlobalIndexOutOfBounds(usize),
     RebaseOutsideStack(usize),
     NoAddressOnCallStack,
+    InstanceMissingMember { instance_id: usize, member: usize },
 }
 
 impl fmt::Display for VmError {
@@ -57,17 +58,18 @@ impl fmt::Display for VmError {
             VmError::TypeMismatchUnary { opcode, operand } => write!(f, "type mismatch of value {operand:?} with opcode {opcode}"),
             VmError::TypeMismatchBinary { opcode, left, right } => write!(f, "type mismatch of values {left:?} and {right:?} with opcode {opcode}"),
             VmError::TypeMismatchJump(operand) => write!(f, "type mismatch for conditional jump {operand:?}"),
+            VmError::TypeMismatchMemberAccess(value) => write!(f, "type mismatch for member access instance {value}"),
             VmError::JumpOutOfBounds(index) => write!(f, "jump index {index} out of bounds"),
             VmError::StackIndexOutOfBounds(index) => write!(f, "stack index {index} out of bounds"),
             VmError::GlobalIndexOutOfBounds(index) => write!(f, "global index {index} out of bounds"),
             VmError::RebaseOutsideStack(index) => write!(f, "attempted to rebase stack to index {index} which is outside stack"),
             VmError::NoAddressOnCallStack => write!(f, "no return address on call stack"),
+            VmError::InstanceMissingMember { instance_id, member } => write!(f, "attemted to access member {member} on instance {instance_id} which does not exist"),
         }
     }
 }
 
 impl std::error::Error for VmError {}
-
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -118,22 +120,13 @@ impl Stack {
             return Err(VmError::NoValueOnStack);
         }
 
-        self.read(self.size - 1)
+        self.get(self.size - 1)
     }
-    fn read(&self, index: usize) -> Result<&Value, VmError> {
-        if let Some(v) = self.data.get(index) {
-            return Ok(v);
-        }
-
-        Err(VmError::StackIndexOutOfBounds(index))
+    fn get(&self, index: usize) -> Result<&Value, VmError> {
+        self.data.get(index).ok_or(VmError::StackIndexOutOfBounds(index))
     }
-    fn write(&mut self, index: usize, value: Value) -> Result<(), VmError> {
-        if let Some(v) = self.data.get_mut(index) {
-            *v = value;
-            return Ok(());
-        }
-
-        Err(VmError::StackIndexOutOfBounds(index))
+    fn get_mut(&mut self, index: usize) -> Result<&mut Value, VmError> {
+        self.data.get_mut(index).ok_or(VmError::StackIndexOutOfBounds(index))
     }
     fn rebase(&mut self, index: usize) -> Result<(), VmError> {
         if self.size < index {
@@ -148,7 +141,7 @@ impl Stack {
     }
 }
 
-pub fn excecute(data: CompiledData) -> Result<(), VmError> {
+pub fn excecute(mut data: CompiledData) -> Result<(), VmError> {
     let mut stack: Stack = Stack::new();
     let mut ptr: usize = 0;
     let mut global_vars: Vec<Value> = Vec::new();
@@ -202,10 +195,10 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
         OpCode::Pop(n) => stack.pop_n(*n)?,
         OpCode::Print => println!("{}", stack.pop()?),
         OpCode::GetVar(i) => {
-            stack.push(stack.read(*i)?.clone())?;
+            stack.push(stack.get(*i)?.clone())?;
         },
-        OpCode::SetVar(i) => {
-            stack.write(*i, stack.pop()?)?;
+        OpCode::SetVar(index) => {
+            *stack.get_mut(*index)? = stack.pop()?;
         },
         OpCode::DefineGlobal => global_vars.push(stack.pop()?),
         OpCode::GetGlobal(i) => stack.push(global_vars.get(*i).map(|v| v.clone()).ok_or(VmError::GlobalIndexOutOfBounds(*i))?)?,
@@ -236,15 +229,42 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
             if stack.rebased_size() < *parameters {
                 return Err(VmError::NoValueOnStack);
             }
-            if let Value::Instance(i) = stack.read(stack.rebased_size() - *parameters + 1)? {
+            if let Value::Instance(i) = stack.get(stack.rebased_size() - *parameters + 1)? {
                 call_stack.push((*ptr, stack.base));
                 *ptr = *vtables.get(i.borrow().id).unwrap().get(*slot).unwrap();
                 stack.rebase(stack.size - *parameters);
             }
             else {
-                return Err(VmError::TypeMismatchCallVirtual(stack.peek()?.clone()));
+                return Err(VmError::TypeMismatchMemberAccess(stack.peek()?.clone()));
             }
         },
+        OpCode::GetMember(index) => {
+            let value: Value = stack.pop()?;
+            if let Value::Instance(instance) = value {
+                stack.push(instance.borrow().fields.get(*index).ok_or_else(|| VmError::InstanceMissingMember { instance_id: instance.borrow().id, member: *index })?.clone());
+            }
+            else {
+                return Err(VmError::TypeMismatchMemberAccess(value));
+            }
+        },
+        OpCode::SetMember(index) => {
+            let value: Value = stack.pop()?;
+            let i_value: Value = stack.pop()?;
+
+            if let Value::Instance(instance) = i_value {
+                let mut inst = instance.borrow_mut();
+                match inst.fields.get_mut(*index) {
+                    Some(field) => *field = value.clone(),
+                    None => {
+                        let instance_id = inst.id;
+                        return Err(VmError::InstanceMissingMember { instance_id, member: *index });
+                    }
+                }
+                stack.push(value)?;
+            } else {
+                return Err(VmError::TypeMismatchMemberAccess(i_value));
+            }
+        }
     };
 
     Ok(())
