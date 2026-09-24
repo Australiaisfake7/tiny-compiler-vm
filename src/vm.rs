@@ -194,11 +194,11 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
         },
         OpCode::Pop(n) => stack.pop_n(*n)?,
         OpCode::Print => println!("{}", stack.pop()?),
-        OpCode::GetVar(i) => {
-            stack.push(stack.get(*i)?.clone())?;
+        OpCode::GetVar(index) => {
+            stack.push(stack.get(stack.base + *index)?.clone())?;
         },
         OpCode::SetVar(index) => {
-            *stack.get_mut(*index)? = stack.pop()?;
+            *stack.get_mut(stack.base + *index)? = stack.pop()?;
         },
         OpCode::DefineGlobal => global_vars.push(stack.pop()?),
         OpCode::GetGlobal(i) => stack.push(global_vars.get(*i).map(|v| v.clone()).ok_or(VmError::GlobalIndexOutOfBounds(*i))?)?,
