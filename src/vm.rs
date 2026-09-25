@@ -48,6 +48,7 @@ enum VmError {
     RebaseOutsideStack(usize),
     NoAddressOnCallStack,
     InstanceMissingMember { instance_id: usize, member: usize },
+    ClassIndexOutOfBounds(usize),
 }
 
 impl fmt::Display for VmError {
@@ -65,6 +66,7 @@ impl fmt::Display for VmError {
             VmError::RebaseOutsideStack(index) => write!(f, "attempted to rebase stack to index {index} which is outside stack"),
             VmError::NoAddressOnCallStack => write!(f, "no return address on call stack"),
             VmError::InstanceMissingMember { instance_id, member } => write!(f, "attemted to access member {member} on instance {instance_id} which does not exist"),
+            VmError::ClassIndexOutOfBounds(index) => write!(f, "attempted to access class {index} which does not exist"),
         }
     }
 }
@@ -149,13 +151,13 @@ pub fn excecute(mut data: CompiledData) -> Result<(), VmError> {
     loop {
         let opcode: &OpCode = data.opcodes.get(ptr).ok_or(VmError::JumpOutOfBounds(ptr))?;
         ptr += 1;
-        excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack, &mut data.vtables)?;
+        excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack, &mut data.vtables, &mut data.field_counts)?;
     }
 
     Ok(())
 }
 
-fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>, vtables: &mut Vec<Vec<usize>>) -> Result<(), VmError> {
+fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>, vtables: &mut Vec<Vec<usize>>, field_counts: &Vec<usize>) -> Result<(), VmError> {
     match opcode {
         OpCode::LNot | OpCode::Negate => {
             let a = stack.pop()?;
@@ -264,7 +266,12 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
             } else {
                 return Err(VmError::TypeMismatchMemberAccess(i_value));
             }
-        }
+        },
+        OpCode::NewInstance(id) => {
+            let count: usize = *field_counts.get(*id).ok_or(VmError::ClassIndexOutOfBounds(*id))?;
+
+            stack.push(Value::Instance(Rc::new(RefCell::new(Instance { id: *id, fields: vec![Value::default(); count] }))))?;
+        },
     };
 
     Ok(())

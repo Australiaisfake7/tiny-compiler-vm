@@ -99,6 +99,7 @@ struct ClassData {
 pub struct CompiledData {
     pub opcodes: Vec<OpCode>,
     pub vtables: Vec<Vec<usize>>,
+    pub field_counts: Vec<usize>,
 }
 pub fn flatten_ast(statements: &[Statement]) -> Result<CompiledData, FlattenError> {
     let mut opcodes: Vec<OpCode> = Vec::new();
@@ -110,13 +111,15 @@ pub fn flatten_ast(statements: &[Statement]) -> Result<CompiledData, FlattenErro
 
     flatten_statements(statements, &mut opcodes, &mut global_vars, &mut vars, &mut funcs, &mut classes, &mut loop_starts, 0, None)?;
 
-    let mut vtables: Vec<Vec<usize>> = vec![Vec::new(); classes.len()];
+    let mut vtables: Vec<Vec<usize>> = Vec::with_capacity(classes.len());
+    let mut field_counts: Vec<usize> = Vec::with_capacity(classes.len());
 
     for (_, data) in classes {
         *vtables.get_mut(data.id).unwrap() = data.vtable;
+        *field_counts.get_mut(data.id).unwrap() = data.vars.len();
     }
 
-    Ok(CompiledData { opcodes, vtables })
+    Ok(CompiledData { opcodes, vtables, field_counts })
 }
 fn flatten_statements(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, func_data: Option<(&str, &DataType)>) -> Result<(bool, bool), FlattenError> {
     let mut r: bool = false;
