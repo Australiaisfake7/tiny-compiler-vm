@@ -211,7 +211,7 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
             }
             call_stack.push((*ptr, stack.base));
             *ptr = *index;
-            stack.rebase(stack.size - *parameters);
+            stack.rebase(stack.size - *parameters)?;
         },
         OpCode::Return => {
             if let Some((index, base)) = call_stack.pop() {
@@ -234,7 +234,7 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
             if let Value::Instance(i) = stack.get(stack.size - *parameters)? {
                 call_stack.push((*ptr, stack.base));
                 *ptr = *vtables.get(i.borrow().id).unwrap().get(*slot).unwrap();
-                stack.rebase(stack.size - *parameters);
+                stack.rebase(stack.size - *parameters)?;
             }
             else {
                 return Err(VmError::TypeMismatchMemberAccess(stack.peek()?.clone()));
@@ -243,7 +243,7 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
         OpCode::GetMember(index) => {
             let value: Value = stack.pop()?;
             if let Value::Instance(instance) = value {
-                stack.push(instance.borrow().fields.get(*index).ok_or_else(|| VmError::InstanceMissingMember { instance_id: instance.borrow().id, member: *index })?.clone());
+                stack.push(instance.borrow().fields.get(*index).ok_or_else(|| VmError::InstanceMissingMember { instance_id: instance.borrow().id, member: *index })?.clone())?;
             }
             else {
                 return Err(VmError::TypeMismatchMemberAccess(value));
