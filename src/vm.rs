@@ -1,6 +1,11 @@
 use crate::{STACK_SIZE, compiler::{CompiledData, OpCode, LiteralType}};
 use std::{cell::RefCell, rc::Rc, fmt};
 
+#[derive(PartialEq)]
+enum ReturnCode {
+    None, Exit,
+}
+
 #[derive(Debug)]
 struct Instance {
     id: usize,
@@ -153,13 +158,15 @@ pub fn excecute(mut data: CompiledData) -> Result<(), VmError> {
     loop {
         let opcode: &OpCode = data.opcodes.get(ptr).ok_or(VmError::JumpOutOfBounds(ptr))?;
         ptr += 1;
-        excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack, &mut data.vtables, &mut data.field_counts)?;
+        if excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack, &mut data.vtables, &mut data.field_counts)? == ReturnCode::Exit {
+            break;
+        }
     }
 
     Ok(())
 }
 
-fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>, vtables: &mut Vec<Vec<usize>>, field_counts: &Vec<usize>) -> Result<(), VmError> {
+fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>, vtables: &mut Vec<Vec<usize>>, field_counts: &Vec<usize>) -> Result<ReturnCode, VmError> {
     match opcode {
         OpCode::LNot | OpCode::Negate => {
             let a = stack.pop()?;
@@ -275,9 +282,10 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
 
             stack.push(Value::Instance(Rc::new(RefCell::new(Instance { id: *id, fields: vec![Value::default(); count] }))))?;
         },
+        OpCode::Exit => return Ok(ReturnCode::Exit),
     };
 
-    Ok(())
+    Ok(ReturnCode::None)
 }
 
 fn apply_unary(opcode: &OpCode, a: Value) -> Result<Value, Value> {

@@ -15,7 +15,8 @@ pub enum OpCode {
     Call { index: usize, parameters: usize }, CallVirtual { slot: usize, parameters: usize },
     Return, Print,
     GetMember(usize), SetMember(usize),
-    NewInstance(usize), 
+    NewInstance(usize),
+    Exit,
 }
 #[derive(Debug)]
 pub enum FlattenError {
