@@ -49,6 +49,7 @@ enum VmError {
     NoAddressOnCallStack,
     InstanceMissingMember { instance_id: usize, member: usize },
     ClassIndexOutOfBounds(usize),
+    VtableIndexOutOfBounds { slot: usize, class: usize },
 }
 
 impl fmt::Display for VmError {
@@ -67,6 +68,7 @@ impl fmt::Display for VmError {
             VmError::NoAddressOnCallStack => write!(f, "no return address on call stack"),
             VmError::InstanceMissingMember { instance_id, member } => write!(f, "attemted to access member {member} on instance {instance_id} which does not exist"),
             VmError::ClassIndexOutOfBounds(index) => write!(f, "attempted to access class {index} which does not exist"),
+            VmError::VtableIndexOutOfBounds { slot, class } => write!(f, "attempted to access vtable slot {slot} on class {class} which does not exist"),
         }
     }
 }
@@ -233,7 +235,8 @@ fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_v
             }
             if let Value::Instance(i) = stack.get(stack.size - *parameters)? {
                 call_stack.push((*ptr, stack.base));
-                *ptr = *vtables.get(i.borrow().id).unwrap().get(*slot).unwrap();
+                let class_id: usize = i.borrow().id;
+                *ptr = *vtables.get(class_id).ok_or(VmError::ClassIndexOutOfBounds(class_id))?.get(*slot).ok_or(VmError::VtableIndexOutOfBounds { slot: *slot, class: class_id })?;
                 stack.rebase(stack.size - *parameters)?;
             }
             else {
