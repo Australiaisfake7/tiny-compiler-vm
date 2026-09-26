@@ -40,7 +40,7 @@ impl PartialEq for Value {
 }
 
 #[derive(Debug)]
-enum VmError {
+pub enum VmError {
     StackOverflow,
     NoValueOnStack,
     TypeMismatchUnary { opcode: String, operand: Value },
