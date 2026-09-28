@@ -11,7 +11,7 @@ const STACK_SIZE: usize = 1024;
 #[derive(Clone, clap::ValueEnum)]
 enum Mode {
     Compile,
-    execute,
+    Execute,
 }
 #[derive(Parser)]
 struct CliArgs {
@@ -58,5 +58,14 @@ fn execute(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 fn main() {
+    let args: CliArgs = CliArgs::parse();
 
+    let result: Result<(), Box<dyn std::error::Error>> = match args.mode {
+        Mode::Compile => compile(&args.file),
+        Mode::Execute => execute(&args.file),
+    };
+
+    if let Err(e) = result {
+        eprintln!("Error: {e}");
+    }
 }
