@@ -150,7 +150,7 @@ impl Stack {
     }
 }
 
-pub fn excecute(mut data: CompiledData) -> Result<(), VmError> {
+pub fn execute(mut data: CompiledData) -> Result<(), VmError> {
     let mut stack: Stack = Stack::new();
     let mut ptr: usize = 0;
     let mut global_vars: Vec<Value> = Vec::new();
@@ -158,7 +158,7 @@ pub fn excecute(mut data: CompiledData) -> Result<(), VmError> {
     loop {
         let opcode: &OpCode = data.opcodes.get(ptr).ok_or(VmError::JumpOutOfBounds(ptr))?;
         ptr += 1;
-        if excecute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack, &mut data.vtables, &mut data.field_counts)? == ReturnCode::Exit {
+        if execute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack, &mut data.vtables, &mut data.field_counts)? == ReturnCode::Exit {
             break;
         }
     }
@@ -166,7 +166,7 @@ pub fn excecute(mut data: CompiledData) -> Result<(), VmError> {
     Ok(())
 }
 
-fn excecute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>, vtables: &mut Vec<Vec<usize>>, field_counts: &Vec<usize>) -> Result<ReturnCode, VmError> {
+fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>, vtables: &mut Vec<Vec<usize>>, field_counts: &Vec<usize>) -> Result<ReturnCode, VmError> {
     match opcode {
         OpCode::LNot | OpCode::Negate => {
             let a = stack.pop()?;
