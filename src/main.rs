@@ -11,7 +11,7 @@ const STACK_SIZE: usize = 1024;
 #[derive(Clone, clap::ValueEnum)]
 enum Mode {
     Compile,
-    Excecute,
+    execute,
 }
 #[derive(Parser)]
 struct CliArgs {
@@ -38,7 +38,7 @@ fn compile(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-fn excecute(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+fn execute(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let extension = path.extension().and_then(|ext| ext.to_str());
     if extension != Some("tb") {
         println!("Unexpected file extension {}. Expected .tb.", extension.unwrap_or("none"));
@@ -51,9 +51,9 @@ fn excecute(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
 
     let compiled_data: CompiledData = bincode::deserialize_from(reader)?;
 
-    vm::excecute(compiled_data)?;
+    vm::execute(compiled_data)?;
 
-    println!("Excecuted {} successfully", read_path.display());
+    println!("executed {} successfully", read_path.display());
 
     Ok(())
 }
