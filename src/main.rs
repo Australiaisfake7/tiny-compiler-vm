@@ -46,7 +46,7 @@ fn execute(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let read_path = path.with_extension("tb");
-    let file: File = File::create(&read_path)?;
+    let file: File = File::open(&read_path)?;
     let reader: std::io::BufReader<File> = std::io::BufReader::new(file);
 
     let compiled_data: CompiledData = bincode::deserialize_from(reader)?;
