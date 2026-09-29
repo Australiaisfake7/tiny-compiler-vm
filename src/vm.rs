@@ -93,14 +93,14 @@ impl fmt::Display for Value {
     }
 }
 struct Stack {
-    data: [Value; STACK_SIZE],
+    data: Box<[Value]>,
     size: usize,
     base: usize,
 }
 
 impl Stack {
     fn new() -> Self {
-        Stack { data: std::array::from_fn(|_| Value::Null), size: 0, base: 0 }
+        Stack { data: vec![Value::default(); STACK_SIZE].into_boxed_slice(), size: 0, base: 0 }
     }
     
     fn pop(&mut self) -> Result<Value, VmError> {
@@ -209,11 +209,11 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             stack.push(stack.get(stack.base + *index)?.clone())?;
         },
         OpCode::SetVar(index) => {
-            *stack.get_mut(stack.base + *index)? = stack.pop()?;
+            *stack.get_mut(stack.base + *index)? = stack.peek()?.clone();
         },
         OpCode::DefineGlobal => global_vars.push(stack.pop()?),
         OpCode::GetGlobal(i) => stack.push(global_vars.get(*i).map(|v| v.clone()).ok_or(VmError::GlobalIndexOutOfBounds(*i))?)?,
-        OpCode::SetGlobal(i) => *global_vars.get_mut(*i).ok_or(VmError::GlobalIndexOutOfBounds(*i))? = stack.pop()?,
+        OpCode::SetGlobal(i) => *global_vars.get_mut(*i).ok_or(VmError::GlobalIndexOutOfBounds(*i))? = stack.peek()?.clone(),
         OpCode::Call { index, parameters } => {
             if stack.rebased_size() < *parameters {
                 return Err(VmError::NoValueOnStack);
