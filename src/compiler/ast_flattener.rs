@@ -112,6 +112,8 @@ pub fn flatten_ast(statements: &[Statement]) -> Result<CompiledData, FlattenErro
 
     flatten_statements(statements, &mut opcodes, &mut global_vars, &mut vars, &mut funcs, &mut classes, &mut loop_starts, 0, None)?;
 
+    opcodes.push(OpCode::Exit);
+
     let mut vtables: Vec<Vec<usize>> = Vec::with_capacity(classes.len());
     let mut field_counts: Vec<usize> = Vec::with_capacity(classes.len());
 
