@@ -43,8 +43,8 @@ impl PartialEq for Value {
 pub enum VmError {
     StackOverflow,
     NoValueOnStack,
-    TypeMismatchUnary { opcode: String, operand: Value },
-    TypeMismatchBinary { opcode: String, left: Value, right: Value },
+    TypeMismatchUnary { opcode: OpCode, operand: Value },
+    TypeMismatchBinary { opcode: OpCode, left: Value, right: Value },
     TypeMismatchJump(Value),
     TypeMismatchMemberAccess(Value),
     JumpOutOfBounds(usize),
@@ -56,6 +56,7 @@ pub enum VmError {
     ClassIndexOutOfBounds(usize),
     VtableIndexOutOfBounds { slot: usize, class: usize },
     CallStackOverflow,
+    DivisonByZero
 }
 
 impl fmt::Display for VmError {
@@ -63,8 +64,8 @@ impl fmt::Display for VmError {
         match self {
             VmError::StackOverflow => write!(f, "stack overflow"),
             VmError::NoValueOnStack => write!(f, "no value on stack"),
-            VmError::TypeMismatchUnary { opcode, operand } => write!(f, "type mismatch of value {operand:?} with opcode {opcode}"),
-            VmError::TypeMismatchBinary { opcode, left, right } => write!(f, "type mismatch of values {left:?} and {right:?} with opcode {opcode}"),
+            VmError::TypeMismatchUnary { opcode, operand } => write!(f, "type mismatch of value {operand:?} with opcode {opcode:?}"),
+            VmError::TypeMismatchBinary { opcode, left, right } => write!(f, "type mismatch of values {left:?} and {right:?} with opcode {opcode:?}"),
             VmError::TypeMismatchJump(operand) => write!(f, "type mismatch for conditional jump {operand:?}"),
             VmError::TypeMismatchMemberAccess(value) => write!(f, "type mismatch for member access instance {value}"),
             VmError::JumpOutOfBounds(index) => write!(f, "jump index {index} out of bounds"),
@@ -76,6 +77,7 @@ impl fmt::Display for VmError {
             VmError::ClassIndexOutOfBounds(index) => write!(f, "attempted to access class {index} which does not exist"),
             VmError::VtableIndexOutOfBounds { slot, class } => write!(f, "attempted to access vtable slot {slot} on class {class} which does not exist"),
             VmError::CallStackOverflow => write!(f, "call stack overflow"),
+            VmError::DivisonByZero => write!(f, "divison by zero"),
         }
     }
 }
@@ -200,25 +202,16 @@ pub fn execute(mut data: CompiledData) -> Result<(), VmError> {
 fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut CallStack, vtables: &mut Vec<Vec<usize>>, field_counts: &Vec<usize>) -> Result<ReturnCode, VmError> {
     match opcode {
         OpCode::LNot | OpCode::Negate => {
-            let a = stack.pop()?;
-            let result = apply_unary(opcode, a)
-                .map_err(|operand| VmError::TypeMismatchUnary { 
-                    opcode: format!("{opcode:?}"), 
-                    operand 
-                })?;
+            let a: Value = stack.pop()?;
+            let result: Value = apply_unary(opcode, a)?;
             stack.push(result)?;
         }
         OpCode::Add | OpCode::Subtract | OpCode::Multiply | OpCode::Divide
         | OpCode::Equal | OpCode::NotEqual
         | OpCode::Less | OpCode::LessEqual | OpCode::Greater | OpCode::GreaterEqual => {
-            let b = stack.pop()?;
-            let a = stack.pop()?;
-            let result = apply_binary(opcode, a, b)
-                .map_err(|(left, right)| VmError::TypeMismatchBinary { 
-                    opcode: format!("{opcode:?}"), 
-                    left, 
-                    right 
-                })?;
+            let b: Value = stack.pop()?;
+            let a: Value = stack.pop()?;
+            let result: Value = apply_binary(opcode, a, b)?;
             stack.push(result)?;
         },
         OpCode::Jump(index) => { *ptr = *index; },
@@ -315,16 +308,16 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
     Ok(ReturnCode::None)
 }
 
-fn apply_unary(opcode: &OpCode, a: Value) -> Result<Value, Value> {
+fn apply_unary(opcode: &OpCode, a: Value) -> Result<Value, VmError> {
     match (opcode, a) {
         (OpCode::LNot, Value::Bool(x)) => Ok(Value::Bool(!x)),
         (OpCode::Negate, Value::Int(x)) => Ok(Value::Int(-x)),
         (OpCode::Negate, Value::Float(x)) => Ok(Value::Float(-x)),
-        (_, a) => Err(a),
+        (_, operand) => Err(VmError::TypeMismatchUnary { opcode: opcode.clone(), operand }),
     }
 }
 
-fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, (Value, Value)> {
+fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, VmError> {
     match (opcode, a, b) {
         (OpCode::Add, Value::Int(x), Value::Int(y)) => Ok(Value::Int(x + y)),
         (OpCode::Add, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x + y)),
@@ -337,6 +330,7 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, (Value, Va
         (OpCode::Multiply, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x * y)),
 
         (OpCode::Divide, Value::Int(x), Value::Int(y)) if y != 0 => Ok(Value::Int(x / y)),
+        (OpCode::Divide, Value::Int(_), Value::Int(0)) => Err(VmError::DivisonByZero),
         (OpCode::Divide, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x / y)),
 
         (OpCode::Less, Value::Int(x), Value::Int(y)) => Ok(Value::Bool(x < y)),
@@ -358,7 +352,7 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, (Value, Va
         (OpCode::Equal, a, b) => Ok(Value::Bool(a == b)),
         (OpCode::NotEqual, a, b) => Ok(Value::Bool(a != b)),
 
-        (_, a, b) => Err((a, b)),
+        (_, left, right) => Err(VmError::TypeMismatchBinary { opcode: opcode.clone(), left, right })
     }
 }
 
