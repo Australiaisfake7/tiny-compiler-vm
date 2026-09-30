@@ -55,6 +55,7 @@ pub enum VmError {
     InstanceMissingMember { instance_id: usize, member: usize },
     ClassIndexOutOfBounds(usize),
     VtableIndexOutOfBounds { slot: usize, class: usize },
+    CallStackOverflow,
 }
 
 impl fmt::Display for VmError {
@@ -74,6 +75,7 @@ impl fmt::Display for VmError {
             VmError::InstanceMissingMember { instance_id, member } => write!(f, "attemted to access member {member} on instance {instance_id} which does not exist"),
             VmError::ClassIndexOutOfBounds(index) => write!(f, "attempted to access class {index} which does not exist"),
             VmError::VtableIndexOutOfBounds { slot, class } => write!(f, "attempted to access vtable slot {slot} on class {class} which does not exist"),
+            VmError::CallStackOverflow => write!(f, "call stack overflow"),
         }
     }
 }
@@ -150,11 +152,40 @@ impl Stack {
     }
 }
 
+struct CallStack {
+    data: Box<[(usize, usize)]>,
+    size: usize,
+}
+
+impl CallStack {
+    fn new() -> Self {
+        CallStack { data: vec![(0, 0); 512].into_boxed_slice(), size: 0 }
+    }
+    fn push(&mut self, value: (usize, usize)) -> Result<(), VmError> {
+        if self.size >= 512 {
+            return Err(VmError::CallStackOverflow);
+        }
+
+        *self.data.get_mut(self.size).unwrap() = value;
+        self.size += 1;
+
+        Ok(())
+    }
+    fn pop(&mut self) -> Result<(usize, usize), VmError> {
+        if self.size == 0 {
+            return Err(VmError::NoAddressOnCallStack);
+        }
+
+        self.size -= 1;
+        Ok(std::mem::take(self.data.get_mut(self.size).unwrap()))
+    }
+}
+
 pub fn execute(mut data: CompiledData) -> Result<(), VmError> {
     let mut stack: Stack = Stack::new();
     let mut ptr: usize = 0;
     let mut global_vars: Vec<Value> = Vec::new();
-    let mut call_stack: Vec<(usize, usize)> = Vec::new();
+    let mut call_stack: CallStack = CallStack::new();
     loop {
         let opcode: &OpCode = data.opcodes.get(ptr).ok_or(VmError::JumpOutOfBounds(ptr))?;
         ptr += 1;
@@ -166,7 +197,7 @@ pub fn execute(mut data: CompiledData) -> Result<(), VmError> {
     Ok(())
 }
 
-fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut Vec<(usize, usize)>, vtables: &mut Vec<Vec<usize>>, field_counts: &Vec<usize>) -> Result<ReturnCode, VmError> {
+fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_vars: &mut Vec<Value>, call_stack: &mut CallStack, vtables: &mut Vec<Vec<usize>>, field_counts: &Vec<usize>) -> Result<ReturnCode, VmError> {
     match opcode {
         OpCode::LNot | OpCode::Negate => {
             let a = stack.pop()?;
@@ -218,30 +249,26 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             if stack.rebased_size() < *parameters {
                 return Err(VmError::NoValueOnStack);
             }
-            call_stack.push((*ptr, stack.base));
+            call_stack.push((*ptr, stack.base))?;
             *ptr = *index;
             stack.rebase(stack.size - *parameters)?;
         },
         OpCode::Return => {
-            if let Some((index, base)) = call_stack.pop() {
-                let value: Value = stack.pop()?;
-                stack.pop_n(stack.rebased_size())?;
+            let (index, base) = call_stack.pop()?;
+            let value: Value = stack.pop()?;
+            stack.pop_n(stack.rebased_size())?;
 
-                stack.rebase(base)?;
-                *ptr = index;
+            stack.rebase(base)?;
+            *ptr = index;
 
-                stack.push(value)?;
-            }
-            else {
-                return Err(VmError::NoAddressOnCallStack);
-            }
+            stack.push(value)?;
         },
         OpCode::CallVirtual { slot, parameters } => {
             if stack.rebased_size() < *parameters {
                 return Err(VmError::NoValueOnStack);
             }
             if let Value::Instance(i) = stack.get(stack.size - *parameters)? {
-                call_stack.push((*ptr, stack.base));
+                call_stack.push((*ptr, stack.base))?;
                 let class_id: usize = i.borrow().id;
                 *ptr = *vtables.get(class_id).ok_or(VmError::ClassIndexOutOfBounds(class_id))?.get(*slot).ok_or(VmError::VtableIndexOutOfBounds { slot: *slot, class: class_id })?;
                 stack.rebase(stack.size - *parameters)?;
