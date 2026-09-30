@@ -264,14 +264,15 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             if stack.rebased_size() < *parameters {
                 return Err(VmError::NoValueOnStack);
             }
-            if let Value::Instance(i) = stack.get(stack.size - *parameters)? {
+            let instance: &Value = stack.get(stack.size - *parameters)?;
+            if let Value::Instance(i) = instance {
                 call_stack.push((*ptr, stack.base))?;
                 let class_id: usize = i.borrow().id;
                 *ptr = *vtables.get(class_id).ok_or(VmError::ClassIndexOutOfBounds(class_id))?.get(*slot).ok_or(VmError::VtableIndexOutOfBounds { slot: *slot, class: class_id })?;
                 stack.rebase(stack.size - *parameters)?;
             }
             else {
-                return Err(VmError::TypeMismatchMemberAccess(stack.peek()?.clone()));
+                return Err(VmError::TypeMismatchMemberAccess(instance.clone()));
             }
         },
         OpCode::GetMember(index) => {
