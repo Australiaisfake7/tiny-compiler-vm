@@ -114,8 +114,8 @@ pub fn flatten_ast(statements: &[Statement]) -> Result<CompiledData, FlattenErro
 
     opcodes.push(OpCode::Exit);
 
-    let mut vtables: Vec<Vec<usize>> = Vec::with_capacity(classes.len());
-    let mut field_counts: Vec<usize> = Vec::with_capacity(classes.len());
+    let mut vtables: Vec<Vec<usize>> = vec![Vec::new(); classes.len()];
+    let mut field_counts: Vec<usize> = vec![0; classes.len()];
 
     for (_, data) in classes {
         *vtables.get_mut(data.id).unwrap() = data.vtable;
