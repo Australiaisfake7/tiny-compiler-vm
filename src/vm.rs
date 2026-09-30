@@ -94,7 +94,7 @@ impl fmt::Display for Value {
             Value::Bool(b) => write!(f, "{b}"),
             Value::Null => write!(f, "null"),
             Value::Int(i) => write!(f, "{i}"),
-            Value::Float(fl) => write!(f, "{fl}"),
+            Value::Float(fl) => write!(f, "{fl:?}"),
             Value::String(s) => write!(f, "{s}"),
             Value::Instance(i) => write!(f, "instance of class {}", i.borrow().id),
         }
