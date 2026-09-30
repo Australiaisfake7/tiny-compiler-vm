@@ -56,7 +56,9 @@ pub enum VmError {
     ClassIndexOutOfBounds(usize),
     VtableIndexOutOfBounds { slot: usize, class: usize },
     CallStackOverflow,
-    DivisonByZero
+    DivisonByZero,
+    IntegerOutOfBoundsUnary { opcode: OpCode, operand: i64 },
+    IntegerOutOfBoundsBinary { opcode: OpCode, left: i64, right: i64 },
 }
 
 impl fmt::Display for VmError {
@@ -78,6 +80,8 @@ impl fmt::Display for VmError {
             VmError::VtableIndexOutOfBounds { slot, class } => write!(f, "attempted to access vtable slot {slot} on class {class} which does not exist"),
             VmError::CallStackOverflow => write!(f, "call stack overflow"),
             VmError::DivisonByZero => write!(f, "divison by zero"),
+            VmError::IntegerOutOfBoundsUnary { opcode, operand } => write!(f, "integer overflow on operation {opcode:?} with operand {operand}"),
+            VmError::IntegerOutOfBoundsBinary { opcode, left, right } => write!(f, "integer overflow on operation {opcode:?} with operands {left} and {right}"),
         }
     }
 }
@@ -311,7 +315,9 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
 fn apply_unary(opcode: &OpCode, a: Value) -> Result<Value, VmError> {
     match (opcode, a) {
         (OpCode::LNot, Value::Bool(x)) => Ok(Value::Bool(!x)),
-        (OpCode::Negate, Value::Int(x)) => Ok(Value::Int(-x)),
+        (OpCode::Negate, Value::Int(x)) => x.checked_neg()
+        .map(|v| Value::Int(v))
+        .ok_or_else(|| VmError::IntegerOutOfBoundsUnary { opcode: opcode.clone(), operand: x }),
         (OpCode::Negate, Value::Float(x)) => Ok(Value::Float(-x)),
         (_, operand) => Err(VmError::TypeMismatchUnary { opcode: opcode.clone(), operand }),
     }
@@ -319,18 +325,26 @@ fn apply_unary(opcode: &OpCode, a: Value) -> Result<Value, VmError> {
 
 fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, VmError> {
     match (opcode, a, b) {
-        (OpCode::Add, Value::Int(x), Value::Int(y)) => Ok(Value::Int(x + y)),
+        (OpCode::Add, Value::Int(x), Value::Int(y)) => x.checked_add(y)
+        .map(|v| Value::Int(v))
+        .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
         (OpCode::Add, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x + y)),
         (OpCode::Add, Value::String(x), Value::String(y)) => Ok(Value::String(x + &y)),
 
-        (OpCode::Subtract, Value::Int(x), Value::Int(y)) => Ok(Value::Int(x - y)),
+        (OpCode::Subtract, Value::Int(x), Value::Int(y)) => x.checked_sub(y)
+        .map(|v| Value::Int(v))
+        .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
         (OpCode::Subtract, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x - y)),
 
-        (OpCode::Multiply, Value::Int(x), Value::Int(y)) => Ok(Value::Int(x * y)),
+        (OpCode::Multiply, Value::Int(x), Value::Int(y)) => x.checked_mul(y)
+        .map(|v| Value::Int(v))
+        .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
         (OpCode::Multiply, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x * y)),
 
-        (OpCode::Divide, Value::Int(x), Value::Int(y)) if y != 0 => Ok(Value::Int(x / y)),
         (OpCode::Divide, Value::Int(_), Value::Int(0)) => Err(VmError::DivisonByZero),
+        (OpCode::Divide, Value::Int(x), Value::Int(y)) if y != 0 => x.checked_div(y)
+        .map(|v| Value::Int(v))
+        .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
         (OpCode::Divide, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x / y)),
 
         (OpCode::Less, Value::Int(x), Value::Int(y)) => Ok(Value::Bool(x < y)),
