@@ -30,7 +30,7 @@ pub enum FlattenError {
     UnexpectedReturnValueType { func: String, expected: DataType, received: DataType }, ReturnOutsideFunction, MissingReturnStatement(String),
     UnpatchedConstructor(String), ParentIsSelf(String),
     UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
-    ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>), VoidValueUsed,
+    ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>), VoidValueUsed, UnreachableCode,
 }
 
 impl fmt::Display for FlattenError {
@@ -83,6 +83,7 @@ impl fmt::Display for FlattenError {
                 write!(f, "'{name}' is a reserved keyword and cannot be used as an identifier"),
             FlattenError::UnexpectedAssignmentTarget(expr) => write!(f, "{expr:?} is not a valid assignment target"),
             FlattenError::VoidValueUsed => write!(f, "a void value cannot be used"),
+            FlattenError::UnreachableCode => write!(f, "some code path contains unreachable code"),
         }
     }
 }
@@ -129,10 +130,13 @@ fn flatten_statements(statements: &[Statement], opcodes: &mut Vec<OpCode>, globa
     let mut r: bool = false;
     let mut t: bool = false;
 
-    for statement in statements {
+    for (i, statement) in statements.iter().enumerate() {
         r = flatten_statement(statement, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data)?;
 
         if r || matches!(statement, Statement::Break | Statement::Continue) {
+            if i + 1 < statements.len() {
+                return Err(FlattenError::UnreachableCode);
+            }
             t = true;
             break;
         }
