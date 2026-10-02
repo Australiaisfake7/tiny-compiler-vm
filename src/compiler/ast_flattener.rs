@@ -30,7 +30,7 @@ pub enum FlattenError {
     UnexpectedReturnValueType { func: String, expected: DataType, received: DataType }, ReturnOutsideFunction, MissingReturnStatement(String),
     UnpatchedConstructor(String), ParentIsSelf(String),
     UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
-    ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>), VoidValueUsed, UnreachableCode,
+    ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>), VoidValueUsed, UnreachableCode, NonBoolConditional,
 }
 
 impl fmt::Display for FlattenError {
@@ -84,6 +84,7 @@ impl fmt::Display for FlattenError {
             FlattenError::UnexpectedAssignmentTarget(expr) => write!(f, "{expr:?} is not a valid assignment target"),
             FlattenError::VoidValueUsed => write!(f, "a void value cannot be used"),
             FlattenError::UnreachableCode => write!(f, "some code path contains unreachable code"),
+            FlattenError::NonBoolConditional => write!(f, "conditionals must be a bool"),
         }
     }
 }
@@ -151,7 +152,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
         }
         Statement::Expression(expression) => { flatten_expression(expression, opcodes, global_vars, vars, funcs, classes)?; opcodes.push(OpCode::Pop(1)); },
         Statement::If { condition, block } => {
-            flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)?;
+            if flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)? != DataType::Bool {
+                return Err(FlattenError::NonBoolConditional);
+            }
 
             let start_index: usize = opcodes.len();
             opcodes.push(OpCode::JumpIfFalse { index: 0, pop: true });
@@ -160,7 +163,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             *opcodes.get_mut(start_index).unwrap() = OpCode::JumpIfFalse { index: opcodes.len(), pop: true };
         },
         Statement::IfElse { condition, block1, block2 } => {
-            flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)?;
+            if flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)? != DataType::Bool {
+                return Err(FlattenError::NonBoolConditional);
+            }
 
             let start_index_1: usize = opcodes.len();
             opcodes.push(OpCode::JumpIfFalse { index: 0, pop: true });
@@ -221,7 +226,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
         }
         Statement::While { condition, block } => {
             let start_index: usize = opcodes.len();
-            flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)?;
+            if flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)? != DataType::Bool {
+                return Err(FlattenError::NonBoolConditional);
+            }
 
             let jump_index: usize = opcodes.len();
             opcodes.push(OpCode::JumpIfFalse { index: 0, pop: true });
@@ -253,7 +260,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             
             *opcodes.get_mut(skip_index).unwrap() = OpCode::Jump(opcodes.len());
 
-            flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)?;
+            if flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)? != DataType::Bool {
+                return Err(FlattenError::NonBoolConditional);
+            }
             let jump_index: usize = opcodes.len();
             opcodes.push(OpCode::JumpIfFalse { index: 0, pop: true });
 
