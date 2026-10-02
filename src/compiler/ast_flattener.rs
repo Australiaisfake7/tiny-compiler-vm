@@ -30,7 +30,7 @@ pub enum FlattenError {
     UnexpectedReturnValueType { func: String, expected: DataType, received: DataType }, ReturnOutsideFunction, MissingReturnStatement(String),
     UnpatchedConstructor(String), ParentIsSelf(String),
     UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
-    ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>),
+    ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>), VoidValueUsed,
 }
 
 impl fmt::Display for FlattenError {
@@ -82,6 +82,7 @@ impl fmt::Display for FlattenError {
             FlattenError::ReservedKeyword(name) =>
                 write!(f, "'{name}' is a reserved keyword and cannot be used as an identifier"),
             FlattenError::UnexpectedAssignmentTarget(expr) => write!(f, "{expr:?} is not a valid assignment target"),
+            FlattenError::VoidValueUsed => write!(f, "a void value cannot be used"),
         }
     }
 }
@@ -180,7 +181,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         }
                     },
                     None => {
-                        if !is_compatible(&data.1.clone(), &DataType::Null, classes) {
+                        if !matches!(data.1, DataType::Void | DataType::Nullable(_)) {
                             return Err(FlattenError::UnexpectedReturnValueType { func: data.0.to_owned(), expected: data.1.clone(), received: DataType::Null });
                         }
                         
@@ -268,7 +269,10 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             return Ok(false);
         },
         Statement::Print(expression) => {
-            flatten_expression(expression, opcodes, global_vars, vars, funcs, classes)?;
+            let d: DataType = flatten_expression(expression, opcodes, global_vars, vars, funcs, classes)?;
+            if d == DataType::Void {
+                return Err(FlattenError::VoidValueUsed);
+            }
             opcodes.push(OpCode::Print);
         },
         Statement::Declaration { name, value, data_type, is_static } => {
@@ -805,7 +809,7 @@ fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, 
     let r: bool = flatten_block(&data.block, opcodes, global_vars, &mut func_vars, funcs, classes, loop_starts, depth, Some((name, &data.data_type)))?;
 
     if !r {
-        if !matches!(data.data_type, DataType::Null | DataType::Nullable(_)) {
+        if !matches!(data.data_type, DataType::Void | DataType::Nullable(_)) {
             return Err(FlattenError::MissingReturnStatement(name.to_owned()));
         }
 
@@ -889,7 +893,7 @@ fn get_binary_type(left: &DataType, operator: &BinaryOp, right: &DataType, class
         (DataType::Float, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::Float) => Ok(DataType::Bool),
         (DataType::String, BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual, DataType::String) => Ok(DataType::Bool),
 
-        (l, BinaryOp::Equal | BinaryOp::NotEqual, r) if is_compatible(l, r, classes) || is_compatible(r, l, classes) => Ok(DataType::Bool),
+        (l, BinaryOp::Equal | BinaryOp::NotEqual, r) if *l != DataType::Void && (is_compatible(l, r, classes) || is_compatible(r, l, classes)) => Ok(DataType::Bool),
 
         _ => Err(()),
     }
