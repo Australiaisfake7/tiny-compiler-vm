@@ -397,6 +397,7 @@ impl Parser {
 
         let data_type: DataType = match self.peek()?.clone() {
             Token::DataType(d) => { self.advance()?; d },
+            Token::Void => { self.advance()?; DataType::Void },
             Token::Identifier(i) => { self.advance()?; DataType::Instance(i) },
             other => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: other.clone() })
         };
