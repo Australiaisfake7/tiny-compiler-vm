@@ -9,6 +9,7 @@ pub enum ParseError {
     UnexpectedToken { expected: &'static str, got: Token },
     UnexpectedReadIndex(usize),
     UnexpectedAssignmentTarget(Box<Expression>),
+    VoidNotAllowed,
 }
 
 impl fmt::Display for ParseError {
@@ -20,6 +21,8 @@ impl fmt::Display for ParseError {
                 write!(f, "read past end of token stream at index {index}"),
             ParseError::UnexpectedAssignmentTarget(expr) =>
                 write!(f, "{expr:?} is not a valid assignment target"),
+            ParseError::VoidNotAllowed =>
+                write!(f, "void is not a valid data type here"),
         }
     }
 }
@@ -256,21 +259,10 @@ impl Parser {
     fn declaration(&mut self, is_static: bool) -> Result<Statement, ParseError> {
         let nullable: bool = self.match_advance(&[Token::Nullable]);
 
-        let t: DataType = match self.advance()? {
-            Token::DataType(d) => {
-                let mut data_type: DataType = d.clone();
-                if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
+        let mut t: DataType = data_type(self.advance()?)?;
 
-                data_type
-            },
-            Token::Identifier(c) => {
-                let mut data_type: DataType = DataType::Instance(c.clone());
-                if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
+        if nullable { t = DataType::Nullable(Box::new(t)); }
 
-                data_type
-            }
-            token => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: token.clone() })
-        };
         let n: String = match self.advance()? {
             Token::Identifier(i) => i.clone(),
             token => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: token.clone() })
@@ -395,12 +387,14 @@ impl Parser {
     fn function(&mut self, is_static: bool) -> Result<Statement, ParseError> {
         let should_override: bool = self.match_advance(&[Token::Override]);
 
-        let data_type: DataType = match self.peek()?.clone() {
-            Token::DataType(d) => { self.advance()?; d },
-            Token::Void => { self.advance()?; DataType::Void },
-            Token::Identifier(i) => { self.advance()?; DataType::Instance(i) },
-            other => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: other.clone() })
+        let nullable: bool = self.match_advance(&[Token::Nullable]);
+
+        let mut data_type: DataType = match self.advance()? {
+            Token::Void => DataType::Void,
+            t => data_type(t)?,
         };
+
+        if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
 
         let name: String = match self.advance()? {
             Token::Identifier(i) => i.clone(),
@@ -436,10 +430,11 @@ impl Parser {
         Ok(Statement::Function { name, data: FunctionData { data_type, parameters, block }, should_override, is_static })
     }
     fn parameter(&mut self) -> Result<(DataType, String), ParseError> {
-        let d: DataType = match self.advance()? {
-            Token::DataType(d) => d.clone(),
-            other => return Err(ParseError::UnexpectedToken { expected: "Data type", got: other.clone() }),
-        };
+        let nullable: bool = self.match_advance(&[Token::Nullable]);
+
+        let mut data_type: DataType = data_type(self.advance()?)?;
+
+        if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
 
         let s: String = match self.advance()? {
             Token::Identifier(i) => i.clone(),
@@ -450,7 +445,7 @@ impl Parser {
             return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() })
         }
 
-        Ok((d, s))
+        Ok((data_type, s))
     }
     fn return_statement(&mut self) -> Result<Statement, ParseError> {
         let expr: Option<Box<Expression>> = self.optional_expression()?;
@@ -721,5 +716,14 @@ impl Parser {
             },
             other => Err(ParseError::UnexpectedToken { expected: "Primary", got: other.clone() })
         };
+    }
+}
+
+fn data_type(token: &Token) -> Result<DataType, ParseError> {
+    match token {
+        Token::Void => Err(ParseError::VoidNotAllowed),
+        Token::DataType(d) => Ok(d.clone()),
+        Token::Identifier(s) => Ok(DataType::Instance(s.clone())),
+        t => Err(ParseError::UnexpectedToken { expected: "Data Type", got: t.clone() }),
     }
 }
