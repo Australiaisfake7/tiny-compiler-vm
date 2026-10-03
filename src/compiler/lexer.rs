@@ -48,7 +48,7 @@ impl<'a> Default for Scanner<'a> {
     fn default() -> Self {
         return Self {
             source: "".chars(),
-            _line: 0,
+            _line: 1,
             _character: 0,
         };
     }
@@ -96,10 +96,13 @@ impl<'a> Scanner<'a> {
             Some('.') => Ok(Token::Dot),
             Some('-') => Ok(Token::Minus),
             Some('+') => Ok(Token::Plus),
-            Some('/') => Ok(Token::Slash),
             Some('*') => Ok(Token::Asterisk),
             Some(';') => Ok(Token::Semicolon),
             Some(':') => Ok(Token::Colon),
+            Some('/') => {
+                if self.match_advance('/') { self.next_line() }
+                else { Ok(Token::Slash) }
+            }
             Some('=') => {
                 if self.match_advance('=') { Ok(Token::Equal) }
                 else { Ok(Token::Assign) }
@@ -229,12 +232,21 @@ impl<'a> Scanner<'a> {
                 self.read_next_token()
             }
             Some(invalid) => Err(LexError { 
-                _message: format!("Invalid _character {} found", invalid),
+                _message: format!("Invalid character {} found", invalid),
                 _line: self._line,
                 _character: self._character 
             }),
             None => Ok(Token::EOF),
         };
+    }
+    fn next_line(&mut self) -> Result<Token, LexError> {
+        loop {
+            match self.advance() {
+                Some('\n') => return self.read_next_token(),
+                None => return Ok(Token::EOF),
+                _ => (),
+            }
+        }
     }
 }
 
