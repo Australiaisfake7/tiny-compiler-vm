@@ -414,9 +414,8 @@ impl Parser {
 
         loop {
             match self.peek()? {
-                Token::DataType(_) => parameters.push(self.parameter()?),
                 Token::RightBracket => break,
-                other => return Err(ParseError::UnexpectedToken { expected: "Parameter", got: other.clone() }),
+                _ => parameters.push(self.parameter()?),
             }
         }
 
