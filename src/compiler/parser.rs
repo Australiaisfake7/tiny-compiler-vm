@@ -311,6 +311,11 @@ impl Parser {
         if !self.match_advance(&[Token::Else]) {
             return Ok(Statement::If { condition: condition, block: block1 });
         }
+
+        if self.match_advance(&[Token::If]) {
+            return Ok(Statement::IfElse { condition, block1, block2: vec![self.if_else()?] });
+        }
+
         if !self.match_advance(&[Token::LeftBrace]) {
             return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
         }
