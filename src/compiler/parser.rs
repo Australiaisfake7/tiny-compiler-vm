@@ -395,6 +395,7 @@ impl Parser {
         let nullable: bool = self.match_advance(&[Token::Nullable]);
 
         let mut data_type: DataType = match self.advance()? {
+            Token::Void if nullable => return Err(ParseError::VoidNotAllowed),
             Token::Void => DataType::Void,
             t => data_type(t)?,
         };
