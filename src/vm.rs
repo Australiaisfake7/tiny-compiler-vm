@@ -140,10 +140,18 @@ impl Stack {
         self.get(self.size - 1)
     }
     fn get(&self, index: usize) -> Result<&Value, VmError> {
-        self.data.get(index).ok_or(VmError::StackIndexOutOfBounds(index))
+        if index >= self.size {
+            return Err(VmError::StackIndexOutOfBounds(index));
+        }
+
+        Ok(self.data.get(index).unwrap())
     }
     fn get_mut(&mut self, index: usize) -> Result<&mut Value, VmError> {
-        self.data.get_mut(index).ok_or(VmError::StackIndexOutOfBounds(index))
+        if index >= self.size {
+            return Err(VmError::StackIndexOutOfBounds(index));
+        }
+
+        Ok(self.data.get_mut(index).unwrap())
     }
     fn rebase(&mut self, index: usize) -> Result<(), VmError> {
         if self.size < index {
