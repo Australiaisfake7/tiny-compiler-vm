@@ -571,7 +571,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                 Expression::MemberAccess { class, member } => {
                     if let Expression::Variable(name) = &**class {
                         if classes.contains_key(name) {
-                            if let Some(index) = global_vars.iter().position(|(s, _)| s == &format!("{}.{}", name, member)) {
+                            if let Some(index) = get_static_member(name, member, classes, global_vars) {
                                 let d: DataType = flatten_expression(value, opcodes, global_vars, vars, funcs, classes)?;
 
                                 if !is_compatible(&global_vars.get(index).unwrap().1, &d, classes) {
@@ -646,8 +646,8 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                 },
                 Expression::MemberAccess { class, member } => {
                     if let Expression::Variable(n) = &**class {
-                        if let Some(class_data) = classes.get(n) {
-                            if let Some((index, return_type, p)) = funcs.get(&format!("{}.{}", n, member)) {
+                        if classes.contains_key(n) {
+                            if let Some((index, return_type, p)) = get_static_func(n, member, classes, funcs) {
                                 if parameters.len() != p.len() {
                                     return Err(FlattenError::UnexpectedParameterCount { callee: callee.clone(), expected: p.len(), received: parameters.len() });
                                 }
@@ -697,7 +697,7 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
         Expression::MemberAccess { class, member } => {
             if let Expression::Variable(name) = &**class {
                 if classes.contains_key(name) {
-                    if let Some(index) = global_vars.iter().position(|(s, _)| s == &format!("{}.{}", name, member)) {
+                    if let Some(index) = get_static_member(name, member, classes, global_vars) {
                         opcodes.push(OpCode::GetGlobal(index));
                         return Ok(global_vars.get(index).unwrap().1.clone());
                     }
@@ -919,11 +919,38 @@ fn is_subclass(child: &str, parent: &str, classes: &HashMap<String, ClassData>) 
                 continue;
             }
         }
-
         return false;
     }
-
     true
+}
+
+fn get_static_member<'a>(mut class: &'a str, member: &str, classes: &'a HashMap<String, ClassData>, global_vars: &Vec<(String, DataType)>) -> Option<usize> {
+    loop {
+        if let Some(index) = global_vars.iter().position(|(s, _)| s == &format!("{}.{}", class, member)) {
+            return Some(index);
+        }
+        if let Some(p) = classes.get(class).and_then(|c| c.parent.as_deref()) {
+            class = p;
+        }
+        else {
+            return None;
+        }
+    }
+}
+
+fn get_static_func<'a>(mut class: &'a str, member: &str, classes: &'a HashMap<String, ClassData>, funcs: &'a HashMap<String, (usize, DataType, Vec<DataType>)>) -> Option<&'a (usize, DataType, Vec<DataType>)> {
+    loop {
+        let func_name: String = format!("{}.{}", class, member);
+        if let Some(d) = funcs.get(&func_name) {
+            return Some(d);
+        }
+        if let Some(p) = classes.get(class).and_then(|c| c.parent.as_deref()) {
+            class = p;
+        }
+        else {
+            return None;
+        }
+    }
 }
 
 fn get_binary_type(left: &DataType, operator: &BinaryOp, right: &DataType, classes: &HashMap<String, ClassData>) -> Result<DataType, ()> {
