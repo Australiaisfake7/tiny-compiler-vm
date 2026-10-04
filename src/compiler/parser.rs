@@ -719,7 +719,7 @@ impl Parser {
                     Err(e) => Err(e),
                 }
             },
-            other => Err(ParseError::UnexpectedToken { expected: "Primary", got: other.clone() })
+            other => Err(ParseError::UnexpectedToken { expected: "Expression", got: other.clone() })
         };
     }
 }
