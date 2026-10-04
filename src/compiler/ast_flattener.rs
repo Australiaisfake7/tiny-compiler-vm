@@ -31,6 +31,7 @@ pub enum FlattenError {
     UnpatchedConstructor(String), ParentIsSelf(String),
     UnexpectedOverrideSignature { name: String, expected: (DataType, Vec<DataType>), received: (DataType, Vec<DataType>) },
     ReservedKeyword(String), UnexpectedAssignmentTarget(Box<Expression>), VoidValueUsed, UnreachableCode, NonBoolConditional,
+    UndeclaredDataType(DataType),
 }
 
 impl fmt::Display for FlattenError {
@@ -85,6 +86,7 @@ impl fmt::Display for FlattenError {
             FlattenError::VoidValueUsed => write!(f, "a void value cannot be used"),
             FlattenError::UnreachableCode => write!(f, "some code path contains unreachable code"),
             FlattenError::NonBoolConditional => write!(f, "conditionals must be a bool"),
+            FlattenError::UndeclaredDataType(d) => write!(f, "undeclared data type {d:?}"),
         }
     }
 }
@@ -290,6 +292,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             opcodes.push(OpCode::Print);
         },
         Statement::Declaration { name, value, data_type, is_static } => {
+            if !is_valid_type(data_type, classes) {
+                return Err(FlattenError::UndeclaredDataType(data_type.clone()));
+            }
             if name == "this" {
                 return Err(FlattenError::ReservedKeyword(name.clone()));
             }
@@ -315,6 +320,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             }
         },
         Statement::Function { name, data, should_override, is_static } => {
+            if !is_valid_type(&data.data_type, classes) {
+                return Err(FlattenError::UndeclaredDataType(data.data_type.clone()));
+            }
             if *is_static {
                 return Err(FlattenError::StaticOutsideClass(name.clone()));
             }
@@ -351,6 +359,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             for member in block {
                 match member {
                     Statement::Declaration { name: var_name, value, data_type, is_static: true } => {
+                        if !is_valid_type(data_type, classes) {
+                            return Err(FlattenError::UndeclaredDataType(data_type.clone()));
+                        }
                         if global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) || funcs.contains_key(&format!("{}.{}", name, var_name)) {
                             return Err(FlattenError::Shadowing(var_name.clone()));
                         }
@@ -418,6 +429,9 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             for member in block {
                 match member {
                     Statement::Declaration { name: var_name, value, data_type, is_static: false } => {
+                        if !is_valid_type(data_type, classes) {
+                            return Err(FlattenError::UndeclaredDataType(data_type.clone()));
+                        }
                         {
                             let class: &mut ClassData = classes.get_mut(name).unwrap();
                             if class.vars.iter().any(|(s, _d)| s == var_name) || class.funcs.contains_key(var_name) || global_vars.iter().any(|(s, _)| s == &format!("{}.{}", name, var_name)) || funcs.contains_key(&format!("{}.{}", name, var_name)) {
@@ -800,6 +814,10 @@ fn short_circuit_binary(left: &Box<Expression>, right: &Box<Expression>, jump_on
 }
 
 fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, class_name: Option<&String>) -> Result<(), FlattenError> {
+    if !is_valid_type(&data.data_type, classes) {
+        return Err(FlattenError::UndeclaredDataType(data.data_type.clone()));
+    }
+
     let jump_index: usize = opcodes.len();
     opcodes.push(OpCode::Jump(0));
 
@@ -810,6 +828,9 @@ fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, 
     }
 
     for (data_type, name) in &data.parameters {
+        if !is_valid_type(data_type, classes) {
+            return Err(FlattenError::UndeclaredDataType(data_type.clone()));
+        }
         if name == "this" {
             return Err(FlattenError::ReservedKeyword(name.clone()));
         }
@@ -867,6 +888,14 @@ impl<'a> TryFrom<&'a OpCode> for BinaryOp {
             OpCode::GreaterEqual => Ok(BinaryOp::GreaterEqual),
             _ => Err(opcode),
         }
+    }
+}
+
+fn is_valid_type(data_type: &DataType, classes: &HashMap<String, ClassData>) -> bool {
+    match data_type {
+        DataType::Nullable(d) => is_valid_type(d, classes),
+        DataType::Instance(n) => classes.contains_key(n),
+        _ => true,
     }
 }
 
