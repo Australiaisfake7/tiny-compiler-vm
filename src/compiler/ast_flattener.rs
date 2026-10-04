@@ -152,7 +152,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
         Statement::Block(statements) => {
             return flatten_block(statements, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data);
         }
-        Statement::Expression(expression) => { flatten_expression(expression, opcodes, global_vars, vars, funcs, classes)?; opcodes.push(OpCode::Pop(1)); },
+        Statement::Expression(expression) => { flatten_expression(expression, opcodes, global_vars, vars, funcs, classes)?; emit_pop(opcodes, 1); },
         Statement::If { condition, block } => {
             if flatten_expression(condition, opcodes, global_vars, vars, funcs, classes)? != DataType::Bool {
                 return Err(FlattenError::NonBoolConditional);
@@ -214,7 +214,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 None => return Err(FlattenError::ContinueOutsideLoop),
             };
 
-            opcodes.push(OpCode::Pop(vars.len() - vars_len));
+            emit_pop(opcodes, vars.len() - vars_len);
             opcodes.push(OpCode::Jump(start_index));
         },
         Statement::Break => {
@@ -222,7 +222,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 return Err(FlattenError::BreakOutsideLoop);
             }
 
-            opcodes.push(OpCode::Pop(vars.len() - loop_starts.last_mut().unwrap().1));
+            emit_pop(opcodes, vars.len() - loop_starts.last_mut().unwrap().1);
             loop_starts.last_mut().unwrap().2.push(opcodes.len());
             opcodes.push(OpCode::Jump(0));
         }
@@ -258,7 +258,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             opcodes.push(OpCode::Jump(0));
 
             flatten_expression(update, opcodes, global_vars, vars, funcs, classes)?;
-            opcodes.push(OpCode::Pop(1));
+            emit_pop(opcodes, 1);
             
             *opcodes.get_mut(skip_index).unwrap() = OpCode::Jump(opcodes.len());
 
@@ -275,7 +275,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             opcodes.push(OpCode::Jump(skip_index + 1));
 
             *opcodes.get_mut(jump_index).unwrap() = OpCode::JumpIfFalse { index: opcodes.len(), pop: true };
-            opcodes.push(OpCode::Pop(vars.len() - outer_vars_len));
+            emit_pop(opcodes, vars.len() - outer_vars_len);
             vars.truncate(outer_vars_len);
 
             for index in unpatched_breaks {
@@ -420,7 +420,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 if let Some(p) = classes.get(n) {
                     opcodes.push(OpCode::GetVar(0));
                     opcodes.push(OpCode::Call { index: p.constructor, parameters: 1 });
-                    opcodes.push(OpCode::Pop(1));
+                    emit_pop(opcodes, 1);
                 }
             }
 
@@ -450,7 +450,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                             let class: &mut ClassData = classes.get_mut(name).unwrap();
 
                             opcodes.push(OpCode::SetMember(class.vars.len()));
-                            opcodes.push(OpCode::Pop(1));
+                            emit_pop(opcodes, 1);
 
                             class.vars.push((var_name.clone(), data_type.clone()));
                         }
@@ -529,7 +529,7 @@ fn flatten_block(statements: &[Statement], opcodes: &mut Vec<OpCode>, global_var
     let (r, t): (bool, bool) = flatten_statements(statements, opcodes, global_vars, vars, funcs, classes, loop_starts, depth + 1, func_data)?;
 
     if !t { 
-        opcodes.push(OpCode::Pop(vars.len() - start_index)); 
+        emit_pop(opcodes, vars.len() - start_index); 
     }
     vars.truncate(start_index);
 
@@ -800,7 +800,7 @@ fn short_circuit_binary(left: &Box<Expression>, right: &Box<Expression>, jump_on
 
     let start_index: usize = opcodes.len();
     opcodes.push(if jump_on { OpCode::JumpIfTrue { index: 0, pop: false } } else { OpCode::JumpIfFalse { index: 0, pop: false } });
-    opcodes.push(OpCode::Pop(1));
+    emit_pop(opcodes, 1);
     
     let r: DataType = flatten_expression(right, opcodes, global_vars, vars, funcs, classes)?;
 
@@ -855,6 +855,12 @@ fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, 
     *opcodes.get_mut(jump_index).unwrap() = OpCode::Jump(opcodes.len());
 
     Ok(())
+}
+
+fn emit_pop(opcodes: &mut Vec<OpCode>, count: usize) {
+    if count > 0 {
+        opcodes.push(OpCode::Pop(count));
+    }
 }
 
 impl<'a> TryFrom<&'a LiteralType> for DataType {
