@@ -364,8 +364,19 @@ impl Parser {
 
         let initializer: Statement = if self.match_advance(&[Token::Semicolon]) {
             Statement::Block(Vec::new())
-        } else {
-            self.statement()?
+        }
+        else if self.match_advance(&[Token::Let]) {
+            self.declaration(false)?
+        }
+        else if starts_expression(self.peek()?) {
+            let s: Statement = Statement::Expression(self.expression()?);
+            if !self.match_advance(&[Token::Semicolon]) {
+                return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+            }
+            s
+        }
+        else {
+            return Err(ParseError::UnexpectedToken { expected: "Declaration or expression in for loop initializer", got: self.peek()?.clone() });
         };
         let condition: Box<Expression> = self.expression()?;
 
@@ -731,4 +742,8 @@ fn data_type(token: &Token) -> Result<DataType, ParseError> {
         Token::Identifier(s) => Ok(DataType::Instance(s.clone())),
         t => Err(ParseError::UnexpectedToken { expected: "Data Type", got: t.clone() }),
     }
+}
+
+fn starts_expression(token: &Token) -> bool {
+    matches!(token, Token::Bool(_) | Token::Int(_) | Token::Float(_) | Token::String(_) | Token::Null | Token::Identifier(_) | Token::LeftBracket | Token::LNot | Token::Minus)
 }
