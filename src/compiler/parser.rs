@@ -378,17 +378,28 @@ impl Parser {
         else {
             return Err(ParseError::UnexpectedToken { expected: "Declaration or expression in for loop initializer", got: self.peek()?.clone() });
         };
-        let condition: Box<Expression> = self.expression()?;
-
-        if !self.match_advance(&[Token::Semicolon]) {
-            return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+        let condition: Box<Expression> = if self.match_advance(&[Token::Semicolon]) {
+            Box::new(Expression::Literal(LiteralType::Bool(true)))
         }
+        else {
+            let e: Box<Expression> = self.expression()?;
+            if !self.match_advance(&[Token::Semicolon]) {
+                return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
+            }
+            e
+        };
 
-        let update: Box<Expression> = self.expression()?;
+        let update: Box<Expression> = if self.match_advance(&[Token::LeftBracket]) {
+            Box::new(Expression::Literal(LiteralType::Null))
+        }
+        else {
+            let e :Box<Expression> = self.expression()?;
+            if !self.match_advance(&[Token::RightBracket]) {
+                return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
+            }
+            e
+        };
  
-        if !self.match_advance(&[Token::RightBracket]) {
-            return Err(ParseError::UnexpectedToken { expected: "')'", got: self.peek()?.clone() });
-        }
         if !self.match_advance(&[Token::LeftBrace]) {
             return Err(ParseError::UnexpectedToken { expected: "'{'", got: self.peek()?.clone() });
         }
