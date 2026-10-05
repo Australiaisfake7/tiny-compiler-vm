@@ -56,7 +56,7 @@ pub enum VmError {
     ClassIndexOutOfBounds(usize),
     VtableIndexOutOfBounds { slot: usize, class: usize },
     CallStackOverflow,
-    DivisonByZero,
+    DivisionByZero,
     IntegerOutOfBoundsUnary { opcode: OpCode, operand: i64 },
     IntegerOutOfBoundsBinary { opcode: OpCode, left: i64, right: i64 },
 }
@@ -79,7 +79,7 @@ impl fmt::Display for VmError {
             VmError::ClassIndexOutOfBounds(index) => write!(f, "attempted to access class {index} which does not exist"),
             VmError::VtableIndexOutOfBounds { slot, class } => write!(f, "attempted to access vtable slot {slot} on class {class} which does not exist"),
             VmError::CallStackOverflow => write!(f, "call stack overflow"),
-            VmError::DivisonByZero => write!(f, "divison by zero"),
+            VmError::DivisionByZero => write!(f, "division by zero"),
             VmError::IntegerOutOfBoundsUnary { opcode, operand } => write!(f, "integer overflow on operation {opcode:?} with operand {operand}"),
             VmError::IntegerOutOfBoundsBinary { opcode, left, right } => write!(f, "integer overflow on operation {opcode:?} with operands {left} and {right}"),
         }
@@ -227,8 +227,8 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             stack.push(result)?;
         },
         OpCode::Jump(index) => { *ptr = *index; },
-        OpCode::JumpIfFalse { index, pop } => jump_conditonal(stack, *index, ptr, false, *pop)?,
-        OpCode::JumpIfTrue { index, pop } => jump_conditonal(stack, *index, ptr, true, *pop)?,
+        OpCode::JumpIfFalse { index, pop } => jump_conditional(stack, *index, ptr, false, *pop)?,
+        OpCode::JumpIfTrue { index, pop } => jump_conditional(stack, *index, ptr, true, *pop)?,
         OpCode::PushConst(lt) => {
             let value: Value = match lt {
                 LiteralType::Null => Value::Null,
@@ -350,7 +350,7 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, VmError> {
         .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
         (OpCode::Multiply, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x * y)),
 
-        (OpCode::Divide, Value::Int(_), Value::Int(0)) => Err(VmError::DivisonByZero),
+        (OpCode::Divide, Value::Int(_), Value::Int(0)) => Err(VmError::DivisionByZero),
         (OpCode::Divide, Value::Int(x), Value::Int(y)) if y != 0 => x.checked_div(y)
         .map(|v| Value::Int(v))
         .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
@@ -379,7 +379,7 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, VmError> {
     }
 }
 
-fn jump_conditonal(stack: &mut Stack, index: usize, ptr: &mut usize, jump_on: bool, pop: bool) -> Result<(), VmError> {
+fn jump_conditional(stack: &mut Stack, index: usize, ptr: &mut usize, jump_on: bool, pop: bool) -> Result<(), VmError> {
     let b: bool = match stack.peek()? {
         Value::Bool(b) => *b,
         v => return Err(VmError::TypeMismatchJump(v.clone())),
