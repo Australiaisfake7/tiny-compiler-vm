@@ -1,4 +1,4 @@
-#[deny(unused_must_use)]
+#![deny(unused_must_use)]
 
 mod compiler;
 mod vm;
@@ -23,8 +23,9 @@ struct CliArgs {
 fn compile(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let extension = path.extension().and_then(|ext| ext.to_str());
     if extension != Some("tl") {
-        println!("Unexpected file extension {}. Expected .tl.", extension.unwrap_or("none"));
-        return Ok(());
+        return Err(format!(
+            "Unexpected file extension {}. Expected .tl.", extension.unwrap_or("none")
+        ).into());
     }
 
     let src: String = std::fs::read_to_string(path)?;
@@ -36,15 +37,16 @@ fn compile(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
 
     bincode::serialize_into(writer, &compiled_data)?;
 
-    println!("Compiled {} successfully", output_path.display());
+    eprintln!("Compiled {} successfully", output_path.display());
 
     Ok(())
 }
 fn execute(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let extension = path.extension().and_then(|ext| ext.to_str());
     if extension != Some("tb") {
-        println!("Unexpected file extension {}. Expected .tb.", extension.unwrap_or("none"));
-        return Ok(());
+        return Err(format!(
+            "Unexpected file extension {}. Expected .tb.", extension.unwrap_or("none")
+        ).into());
     }
 
     let read_path = path.with_extension("tb");
@@ -52,10 +54,9 @@ fn execute(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let reader: std::io::BufReader<File> = std::io::BufReader::new(file);
 
     let compiled_data: CompiledData = bincode::deserialize_from(reader)?;
-
     vm::execute(compiled_data)?;
 
-    println!("executed {} successfully", read_path.display());
+    eprintln!("Executed {} successfully", read_path.display());
 
     Ok(())
 }
@@ -69,5 +70,6 @@ fn main() {
 
     if let Err(e) = result {
         eprintln!("Error: {e}");
+        std::process::exit(1);
     }
 }
