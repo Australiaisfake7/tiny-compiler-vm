@@ -389,7 +389,7 @@ impl Parser {
             e
         };
 
-        let update: Box<Expression> = if self.match_advance(&[Token::LeftBracket]) {
+        let update: Box<Expression> = if self.match_advance(&[Token::RightBracket]) {
             Box::new(Expression::Literal(LiteralType::Null))
         }
         else {
