@@ -274,12 +274,13 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
 
             opcodes.push(OpCode::Jump(skip_index + 1));
 
+            let end_index: usize = opcodes.len();
             *opcodes.get_mut(jump_index).unwrap() = OpCode::JumpIfFalse { index: opcodes.len(), pop: true };
             emit_pop(opcodes, vars.len() - outer_vars_len);
             vars.truncate(outer_vars_len);
 
             for index in unpatched_breaks {
-                *opcodes.get_mut(index).unwrap() = OpCode::Jump(opcodes.len() - 1);
+                *opcodes.get_mut(index).unwrap() = OpCode::Jump(end_index);
             }
 
             return Ok(false);
