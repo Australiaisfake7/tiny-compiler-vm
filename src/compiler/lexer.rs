@@ -78,6 +78,9 @@ impl<'a> Scanner<'a> {
     fn peek(&self) -> Option<char> {
         return self.source.clone().next();
     }
+    fn peek_ahead(&self, i: usize) -> Option<char> {
+        self.source.clone().nth(i)
+    }
     fn match_advance(&mut self, c: char) -> bool {
         if Some(c) == self.peek() {
             self.advance();
@@ -100,7 +103,7 @@ impl<'a> Scanner<'a> {
             Some(';') => Ok(Token::Semicolon),
             Some(':') => Ok(Token::Colon),
             Some('/') => {
-                if self.match_advance('/') { self.next_line() }
+                if self.match_advance('/') { self.skip_comments() }
                 else { Ok(Token::Slash) }
             }
             Some('=') => {
@@ -239,12 +242,16 @@ impl<'a> Scanner<'a> {
             None => Ok(Token::EOF),
         };
     }
-    fn next_line(&mut self) -> Result<Token, LexError> {
+    fn skip_comments(&mut self) -> Result<Token, LexError> {
         loop {
             match self.advance() {
-                Some('\n') => return self.read_next_token(),
+                Some('\n') => {
+                    if !(self.peek() == Some('/') && self.peek_ahead(1) == Some('/')) {
+                        return self.read_next_token();
+                    }             
+                },
+                Some(_) => (),
                 None => return Ok(Token::EOF),
-                _ => (),
             }
         }
     }
