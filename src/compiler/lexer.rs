@@ -4,14 +4,14 @@ use std::str::Chars;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     LeftBracket, RightBracket, LeftBrace, RightBrace,
-    Dot, Minus, Plus, Slash, Asterisk, Semicolon, Colon,
+    Dot, Minus, Plus, Slash, Asterisk, Semicolon, Colon, Question,
 
     Identifier(String), String(String), Int(i64), Float(f64), Bool(bool),
 
     Assign, Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
     LAnd, LOr, LNot,
 
-    Print, Fun, DataType(DataType), Nullable, Static, Null, Void, Override,
+    Print, Fun, DataType(DataType), Static, Null, Void, Override,
 
     If, Else, For, While, Class, Return, Continue, Break,
 
@@ -102,6 +102,7 @@ impl<'a> Scanner<'a> {
             Some('*') => Ok(Token::Asterisk),
             Some(';') => Ok(Token::Semicolon),
             Some(':') => Ok(Token::Colon),
+            Some('?') => Ok(Token::Question),
             Some('/') => {
                 if self.match_advance('/') { self.skip_comments() }
                 else { Ok(Token::Slash) }
@@ -205,7 +206,6 @@ impl<'a> Scanner<'a> {
                     "false" => Token::Bool(false),
                     "null" => Token::Null,
                     "void" => Token::Void,
-                    "nullable" => Token::Nullable,
                     "static" => Token::Static,
                     "int" => Token::DataType(DataType::Int),
                     "float" => Token::DataType(DataType::Float),

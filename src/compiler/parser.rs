@@ -209,10 +209,14 @@ impl Parser {
         let mut i: usize = self.position;
 
         match self.tokens.get(i) {
-            Some(Token::Nullable) | Some(Token::DataType(_)) => return true,
+            Some(Token::DataType(_)) => return true,
             Some(Token::Identifier(_)) => i += 1,
             _ => return false,
-        };
+        }
+
+        if matches!(self.tokens.get(i), Some(Token::Question)) {
+            i += 1;
+        }
 
         matches!(self.tokens.get(i), Some(Token::Identifier(_)))
     }
@@ -268,18 +272,14 @@ impl Parser {
         return Ok(Statement::Expression(expr));
     }
     fn declaration(&mut self, is_static: bool) -> Result<Statement, ParseError> {
-        let nullable: bool = self.match_advance(&[Token::Nullable]);
-
-        let mut t: DataType = data_type(self.advance()?)?;
-
-        if nullable { t = DataType::Nullable(Box::new(t)); }
+        let d: DataType = self.get_data_type(false)?;
 
         let n: String = match self.advance()? {
             Token::Identifier(i) => i.clone(),
             token => return Err(ParseError::UnexpectedToken { expected: "Identifier", got: token.clone() })
         };
         let v: Box<Expression> = match self.advance()? {
-            Token::Semicolon => return Ok(Statement::Declaration { name: n, value: Box::new(Expression::Literal(LiteralType::Null)), data_type: t, is_static }),
+            Token::Semicolon => return Ok(Statement::Declaration { name: n, value: Box::new(Expression::Literal(LiteralType::Null)), data_type: d, is_static }),
             Token::Assign => self.expression()?,
             token => return Err(ParseError::UnexpectedToken { expected: "';'", got: token.clone() })
         };
@@ -287,7 +287,7 @@ impl Parser {
             return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
         }
 
-        return Ok(Statement::Declaration { name: n, value: v, data_type: t, is_static });
+        return Ok(Statement::Declaration { name: n, value: v, data_type: d, is_static });
     }
     fn block(&mut self) -> Result<Statement, ParseError> {
         let mut stmts: Vec<Statement> = Vec::new();
@@ -425,15 +425,7 @@ impl Parser {
     fn function(&mut self, is_static: bool) -> Result<Statement, ParseError> {
         let should_override: bool = self.match_advance(&[Token::Override]);
 
-        let nullable: bool = self.match_advance(&[Token::Nullable]);
-
-        let mut data_type: DataType = match self.advance()? {
-            Token::Void if nullable => return Err(ParseError::VoidNotAllowed),
-            Token::Void => DataType::Void,
-            t => data_type(t)?,
-        };
-
-        if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
+        let data_type: DataType = self.get_data_type(true)?;
 
         let name: String = match self.advance()? {
             Token::Identifier(i) => i.clone(),
@@ -468,11 +460,7 @@ impl Parser {
         Ok(Statement::Function { name, data: FunctionData { data_type, parameters, block }, should_override, is_static })
     }
     fn parameter(&mut self) -> Result<(DataType, String), ParseError> {
-        let nullable: bool = self.match_advance(&[Token::Nullable]);
-
-        let mut data_type: DataType = data_type(self.advance()?)?;
-
-        if nullable { data_type = DataType::Nullable(Box::new(data_type)); }
+        let data_type: DataType = self.get_data_type(false)?;
 
         let s: String = match self.advance()? {
             Token::Identifier(i) => i.clone(),
@@ -755,16 +743,36 @@ impl Parser {
             other => Err(ParseError::UnexpectedToken { expected: "Expression", got: other.clone() })
         };
     }
-}
+    fn get_data_type(&mut self, void_allowed: bool) -> Result<DataType, ParseError> {
+        let token: &Token = self.advance()?;
 
-fn data_type(token: &Token) -> Result<DataType, ParseError> {
-    match token {
-        Token::Void => Err(ParseError::VoidNotAllowed),
-        Token::DataType(d) => Ok(d.clone()),
-        Token::Identifier(s) => Ok(DataType::Instance(s.clone())),
-        t => Err(ParseError::UnexpectedToken { expected: "Data Type", got: t.clone() }),
+        let d: DataType = match token {
+            Token::Void => {
+                if void_allowed {
+                    DataType::Void
+                }
+                else {
+                    return Err(ParseError::VoidNotAllowed);
+                }
+            }
+            Token::DataType(d) => d.clone(),
+            Token::Identifier(s) => DataType::Instance(s.clone()),
+            t => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: t.clone() }),
+        };
+
+        if self.match_advance(&[Token::Question]) {
+            if d == DataType::Void {
+                return Err(ParseError::VoidNotAllowed);
+            }
+            Ok(DataType::Nullable(Box::new(d)))
+        }
+        else {
+            Ok(d)
+        }
     }
 }
+
+
 
 fn starts_expression(token: &Token) -> bool {
     matches!(token, Token::Bool(_) | Token::Int(_) | Token::Float(_) | Token::String(_) | Token::Null | Token::Identifier(_) | Token::LeftBracket | Token::LNot | Token::Minus)
