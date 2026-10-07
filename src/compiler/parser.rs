@@ -205,10 +205,18 @@ impl Parser {
         }
         return false;
     }
+    fn is_declaration(&self) -> bool {
+        let mut i: usize = self.position;
+
+        match self.tokens.get(i) {
+            Some(Token::Nullable) | Some(Token::DataType(_)) => return true,
+            Some(Token::Identifier(_)) => i += 1,
+            _ => return false,
+        };
+
+        matches!(self.tokens.get(i), Some(Token::Identifier(_)))
+    }
     fn statement(&mut self) -> Result<Statement, ParseError> {
-        if self.match_advance(&[Token::Let]) {
-            return self.declaration(false);
-        }
         if self.match_advance(&[Token::LeftBrace]) {
             return self.block();
         }
@@ -240,14 +248,17 @@ impl Parser {
             return self.break_statement();
         }
         if self.match_advance(&[Token::Static]) {
-        if self.match_advance(&[Token::Let]) {
-            return self.declaration(true);
+            if self.match_advance(&[Token::Fun]) {
+                return self.function(true);
+            }
+            if self.is_declaration() {
+                return self.declaration(true);
+            }
+            return Err(ParseError::UnexpectedToken { expected: "declaration or 'fun' after 'static'", got: self.peek()?.clone() });
         }
-        if self.match_advance(&[Token::Fun]) {
-            return self.function(true);
+        if self.is_declaration() {
+            return self.declaration(false);
         }
-        return Err(ParseError::UnexpectedToken { expected: "'let' or 'fun' after 'static'", got: self.peek()?.clone() });
-    }
 
         let expr: Box<Expression> = self.expression()?;
         if !self.match_advance(&[Token::Semicolon]) {
@@ -365,7 +376,7 @@ impl Parser {
         let initializer: Statement = if self.match_advance(&[Token::Semicolon]) {
             Statement::Block(Vec::new())
         }
-        else if self.match_advance(&[Token::Let]) {
+        else if self.is_declaration() {
             self.declaration(false)?
         }
         else if starts_expression(self.peek()?) {
