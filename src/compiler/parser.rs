@@ -10,6 +10,7 @@ pub enum ParseError {
     UnexpectedReadIndex(usize),
     UnexpectedAssignmentTarget(Box<Expression>),
     VoidNotAllowed,
+    InvalidArraySize(i64),
 }
 
 impl fmt::Display for ParseError {
@@ -23,6 +24,8 @@ impl fmt::Display for ParseError {
                 write!(f, "{expr:?} is not a valid assignment target"),
             ParseError::VoidNotAllowed =>
                 write!(f, "void is not a valid data type here"),
+            ParseError::InvalidArraySize(l) =>
+                write!(f, "received invalid array size {l}"),
         }
     }
 }
@@ -92,6 +95,11 @@ pub enum Expression {
         class: Box<Expression>,
         member: String,
     },
+    ArrayAccess {
+        target: Box<Expression>,
+        index: Box<Expression>,
+    },
+    ArrayLiteral(Vec<Expression>),
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -214,11 +222,19 @@ impl Parser {
             _ => return false,
         }
 
-        if matches!(self.tokens.get(i), Some(Token::Question)) {
-            i += 1;
+        loop {
+            match self.tokens.get(i) {
+                Some(Token::Question) => i += 1,
+                Some(Token::LeftSquare) => {
+                    if !matches!(self.tokens.get(i + 1), Some(Token::Int(_))) || !matches!(self.tokens.get(i + 2), Some(Token::RightSquare)) {
+                        return false;
+                    }
+                    i += 3;
+                },
+                Some(Token::Identifier(_)) => return true,
+                Some(_) | None => return false,
+            }
         }
-
-        matches!(self.tokens.get(i), Some(Token::Identifier(_)))
     }
     fn statement(&mut self) -> Result<Statement, ParseError> {
         if self.match_advance(&[Token::LeftBrace]) {
@@ -281,7 +297,7 @@ impl Parser {
         let v: Box<Expression> = match self.advance()? {
             Token::Semicolon => return Ok(Statement::Declaration { name: n, value: Box::new(Expression::Literal(LiteralType::Null)), data_type: d, is_static }),
             Token::Assign => self.expression()?,
-            token => return Err(ParseError::UnexpectedToken { expected: "';'", got: token.clone() })
+            token => return Err(ParseError::UnexpectedToken { expected: "';'", got: token.clone() }),
         };
         if !self.match_advance(&[Token::Semicolon]) {
             return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() });
@@ -519,17 +535,11 @@ impl Parser {
         Ok(Statement::Break)
     }
     fn optional_expression(&mut self) -> Result<Option<Box<Expression>>, ParseError> {
-        match self.peek()? {
-            Token::Int(_) |
-            Token::Float(_) |
-            Token::String(_) |
-            Token::Null |
-            Token::Bool(_) |
-            Token::LNot |
-            Token::Minus |
-            Token::Identifier(_) |
-            Token::LeftBracket => Ok(Some(self.expression()?)),
-            _ => Ok(None),
+        if starts_expression(self.peek()?) {
+            Ok(Some(self.expression()?))
+        }
+        else {
+            Ok(None)
         }
     }
     fn expression(&mut self) -> Result<Box<Expression>, ParseError> {
@@ -542,7 +552,7 @@ impl Parser {
             let value: Box<Expression> = self.assignment()?;
 
             match &*expr {
-                Expression::Variable(_) | Expression::MemberAccess { .. } => return Ok(Box::new(Expression::Assignment { target: expr, value })),
+                Expression::Variable(_) | Expression::MemberAccess { .. } | Expression::ArrayAccess { .. } => return Ok(Box::new(Expression::Assignment { target: expr, value })),
                 _ => return Err(ParseError::UnexpectedAssignmentTarget(expr)),
             }
         }
@@ -717,6 +727,15 @@ impl Parser {
                     return Err(ParseError::UnexpectedToken { expected: "Identifier", got: self.peek()?.clone() });
                 }
             }
+            else if self.match_advance(&[Token::LeftSquare]) {
+                let index: Box<Expression> = self.expression()?;
+
+                if !self.match_advance(&[Token::RightSquare]) {
+                    return Err(ParseError::UnexpectedToken { expected: "']'", got: self.peek()?.clone() });
+                }
+
+                expr = Box::new(Expression::ArrayAccess { target: expr, index });
+            }
             else {
                 break;
             }
@@ -739,6 +758,20 @@ impl Parser {
                     Ok(t) => return Err(ParseError::UnexpectedToken { expected: ")", got: t.clone() }),
                     Err(e) => Err(e),
                 }
+            
+            },
+            Token::LeftSquare => {
+                let mut vec: Vec<Expression> = vec![*self.expression()?];
+
+                loop {
+                    match self.advance()? {
+                        Token::Semicolon => vec.push(*self.expression()?),
+                        Token::RightSquare => break,
+                        _ => return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() }),
+                    }
+                }
+
+                Ok(Box::new(Expression::ArrayLiteral(vec)))
             },
             other => Err(ParseError::UnexpectedToken { expected: "Expression", got: other.clone() })
         };
@@ -746,7 +779,7 @@ impl Parser {
     fn get_data_type(&mut self, void_allowed: bool) -> Result<DataType, ParseError> {
         let token: &Token = self.advance()?;
 
-        let d: DataType = match token {
+        let mut d: DataType = match token {
             Token::Void => {
                 if void_allowed {
                     DataType::Void
@@ -760,20 +793,39 @@ impl Parser {
             t => return Err(ParseError::UnexpectedToken { expected: "Data Type", got: t.clone() }),
         };
 
-        if self.match_advance(&[Token::Question]) {
-            if d == DataType::Void {
-                return Err(ParseError::VoidNotAllowed);
+        loop {
+            if self.match_advance(&[Token::Question]) {
+                if d == DataType::Void {
+                    return Err(ParseError::VoidNotAllowed);
+                }
+                d = DataType::Nullable(Box::new(d));
             }
-            Ok(DataType::Nullable(Box::new(d)))
+            else if self.match_advance(&[Token::LeftSquare]) {
+                let len: usize = match self.advance()? {
+                    Token::Int(l) => {
+                        if *l < 1 { return Err(ParseError::InvalidArraySize(*l)) }
+                        *l as usize
+                    },
+                    t => return Err(ParseError::UnexpectedToken { expected: "Integer Literal", got: t.clone() }),
+                };
+
+                if !self.match_advance(&[Token::RightSquare]) {
+                    return Err(ParseError::UnexpectedToken { expected: "']'", got: self.peek()?.clone() });
+                }
+
+                d = DataType::Array(Box::new(d), len);
+            }
+            else {
+                break;
+            }
         }
-        else {
-            Ok(d)
-        }
+
+        Ok(d)
     }
 }
 
 
 
 fn starts_expression(token: &Token) -> bool {
-    matches!(token, Token::Bool(_) | Token::Int(_) | Token::Float(_) | Token::String(_) | Token::Null | Token::Identifier(_) | Token::LeftBracket | Token::LNot | Token::Minus)
+    matches!(token, Token::Bool(_) | Token::Int(_) | Token::Float(_) | Token::String(_) | Token::Null | Token::Identifier(_) | Token::LeftBracket | Token::LNot | Token::Minus | Token::LeftSquare)
 }
