@@ -12,17 +12,19 @@ struct Instance {
     fields: Vec<Value>,
 }
 
-type InstanceRef = Rc<RefCell<Instance>>;
+type RcMut<T> = Rc<RefCell<T>>;
+type ArrayData = RcMut<Box<[Value]>>;
 
 #[derive(Debug, Default, Clone)]
-enum Value {
+pub enum Value {
     Int(i64),
     Float(f64),
     String(String),
     Bool(bool),
     #[default]
     Null,
-    Instance(InstanceRef),
+    Instance(RcMut<Instance>),
+    Array(ArrayData),
 }
 
 impl PartialEq for Value {
@@ -34,6 +36,7 @@ impl PartialEq for Value {
             (Value::Bool(a), Value::Bool(b)) => a == b,
             (Value::Null, Value::Null) => true,
             (Value::Instance(a), Value::Instance(b)) => Rc::ptr_eq(a, b),
+            (Value::Array(a), Value::Array(b)) => Rc::ptr_eq(a, b) || *a.borrow() == *b.borrow(),
             _ => false,
         }
     }
@@ -47,6 +50,9 @@ pub enum VmError {
     TypeMismatchBinary { opcode: OpCode, left: Value, right: Value },
     TypeMismatchJump(Value),
     TypeMismatchMemberAccess(Value),
+    TypeMismatchIndex(Value),
+    TypeMismatchArrayAccess(Value),
+    TypeMismatchCloneArray(Value),
     JumpOutOfBounds(usize),
     StackIndexOutOfBounds(usize),
     GlobalIndexOutOfBounds(usize),
@@ -59,6 +65,7 @@ pub enum VmError {
     DivisionByZero,
     IntegerOutOfBoundsUnary { opcode: OpCode, operand: i64 },
     IntegerOutOfBoundsBinary { opcode: OpCode, left: i64, right: i64 },
+    ArrayIndexOutOfBounds { array: ArrayData, index: i64 },
 }
 
 impl fmt::Display for VmError {
@@ -82,6 +89,10 @@ impl fmt::Display for VmError {
             VmError::DivisionByZero => write!(f, "division by zero"),
             VmError::IntegerOutOfBoundsUnary { opcode, operand } => write!(f, "integer overflow on operation {opcode:?} with operand {operand}"),
             VmError::IntegerOutOfBoundsBinary { opcode, left, right } => write!(f, "integer overflow on operation {opcode:?} with operands {left} and {right}"),
+            VmError::ArrayIndexOutOfBounds { array, index } => write!(f, "index {index} out of bounds for array {}", Value::Array(array.clone())),
+            VmError::TypeMismatchArrayAccess(value) => write!(f, "type mismatch attepmting to index value {value} as array"),
+            VmError::TypeMismatchCloneArray(value) => write!(f, "type mismatch attempting to clone value {value} as array"),
+            VmError::TypeMismatchIndex(value) => write!(f, "type mismatch uising {value} as index"),
         }
     }
 }
@@ -97,9 +108,31 @@ impl fmt::Display for Value {
             Value::Float(fl) => write!(f, "{fl:?}"),
             Value::String(s) => write!(f, "{s}"),
             Value::Instance(i) => write!(f, "instance of class {}", i.borrow().id),
+            Value::Array(a) => {
+                let values: &[Value] = &a.borrow();
+                let mut strs: Vec<String> = Vec::with_capacity(values.len());
+                let mut char_len: usize = 0;
+
+                for v in values {
+                    let s: String = v.to_string();
+                    char_len += s.len() + 2;
+                    strs.push(s);
+                }
+
+                let mut str: String = String::with_capacity(char_len);
+
+                for s in strs {
+                    str.push_str(&s);
+                    str.push_str(", ");
+                }
+                str.truncate(str.len() - 2);
+
+                write!(f, "[{str}]")
+            },
         }
     }
 }
+
 struct Stack {
     data: Box<[Value]>,
     size: usize,
@@ -316,6 +349,58 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             stack.push(Value::Instance(Rc::new(RefCell::new(Instance { id: *id, fields: vec![Value::default(); count] }))))?;
         },
         OpCode::Exit => return Ok(ReturnCode::Exit),
+        OpCode::NewArray(len) => {
+            let mut values: Vec<Value> = Vec::with_capacity(*len);
+
+            for _ in 0_usize..*len {
+                values.push(stack.pop()?);
+            }
+            values.reverse();
+
+            stack.push(Value::Array(Rc::new(RefCell::new(values.into_boxed_slice()))))?;
+        },
+        OpCode::GetArrayMember => {
+            let index: i64 = match stack.pop()? {
+                Value::Int(i) => i,
+                v => return Err(VmError::TypeMismatchIndex(v)),
+            };
+            let array: ArrayData = match stack.pop()? {
+                Value::Array(a) => a,
+                v => return Err(VmError::TypeMismatchArrayAccess(v)),
+            };
+
+            if index < 0 || index as usize >= array.borrow().len() {
+                return Err(VmError::ArrayIndexOutOfBounds { array, index });
+            }
+
+            stack.push(array.borrow().get(index as usize).unwrap().clone())?;
+        },
+        OpCode::SetArrayMember => {
+            let value: Value = stack.pop()?;
+            let index: i64 = match stack.pop()? {
+                Value::Int(i) => i,
+                v => return Err(VmError::TypeMismatchIndex(v)),
+            };
+            let array: ArrayData = match stack.pop()? {
+                Value::Array(a) => a,
+                v => return Err(VmError::TypeMismatchArrayAccess(v)),
+            };
+
+            if index < 0 || index as usize >= array.borrow().len() {
+                return Err(VmError::ArrayIndexOutOfBounds { array, index });
+            }
+
+            *array.borrow_mut().get_mut(index as usize).unwrap() = value.clone();
+            stack.push(value)?;
+        },
+        OpCode::CloneArray => {
+            let array: ArrayData = match stack.pop()? {
+                Value::Array(a) => a,
+                v => return Err(VmError::TypeMismatchCloneArray(v)),
+            };
+
+            stack.push(Value::Array(clone_array(array)))?;
+        },
     };
 
     Ok(ReturnCode::None)
@@ -393,4 +478,17 @@ fn jump_conditional(stack: &mut Stack, index: usize, ptr: &mut usize, jump_on: b
     }
 
     Ok(())
+}
+
+fn clone_array(array: ArrayData) -> ArrayData {
+    let new_array: ArrayData = Rc::new(RefCell::new(array.borrow().clone()));
+
+    for v in new_array.borrow_mut().iter_mut() {
+        match v {
+            Value::Array(a) => *v = Value::Array(clone_array(a.clone())),
+            _ => (),
+        }
+    }
+
+    new_array
 }

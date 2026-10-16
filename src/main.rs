@@ -1,5 +1,3 @@
-#![deny(unused_must_use)]
-
 mod compiler;
 mod vm;
 

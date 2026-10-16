@@ -3,7 +3,7 @@ use std::str::Chars;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    LeftBracket, RightBracket, LeftBrace, RightBrace,
+    LeftBracket, RightBracket, LeftBrace, RightBrace, LeftSquare, RightSquare,
     Dot, Minus, Plus, Slash, Asterisk, Semicolon, Colon, Question,
 
     Identifier(String), String(String), Int(i64), Float(f64), Bool(bool),
@@ -20,7 +20,8 @@ pub enum Token {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
-    Int, Float, String, Bool, Instance(String), Nullable(Box<DataType>), Null, Void,
+    Int, Float, String, Bool, Nullable(Box<DataType>), Null, Void,
+    Instance(String), Array(Box<DataType>, usize),
 }
 
 #[derive(Debug)]
@@ -96,6 +97,8 @@ impl<'a> Scanner<'a> {
             Some('}') => Ok(Token::RightBrace),
             Some('(') => Ok(Token::LeftBracket),
             Some(')') => Ok(Token::RightBracket),
+            Some('[') => Ok(Token::LeftSquare),
+            Some(']') => Ok(Token::RightSquare),
             Some('.') => Ok(Token::Dot),
             Some('-') => Ok(Token::Minus),
             Some('+') => Ok(Token::Plus),
