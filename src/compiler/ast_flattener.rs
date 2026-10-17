@@ -437,7 +437,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 }
             }
 
-            let self_reference_vars: Vec<(String, DataType)> = vec![("this".to_owned(), DataType::Instance(name.clone()))];
+            let empty_vars: Vec<(String, DataType)> = Vec::new();
 
             for member in block {
                 match member {
@@ -453,7 +453,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                         }
 
                         opcodes.push(OpCode::GetVar(0));
-                        let d: DataType = flatten_expression_expected(value, opcodes, global_vars, &self_reference_vars, funcs, classes, Some(data_type))?;
+                        let d: DataType = flatten_expression_expected(value, opcodes, global_vars, &empty_vars, funcs, classes, Some(data_type))?;
 
                         if !is_compatible(data_type, &d, classes) {
                             return Err(FlattenError::UnexpectedDeclarationValueType { variable: format!("{}.{}", name, var_name), expected: data_type.clone(), received: d });
