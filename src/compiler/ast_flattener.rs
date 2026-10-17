@@ -283,6 +283,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
             loop_starts.push((skip_index + 1, inner_vars_len, Vec::new()));
             flatten_block(block, opcodes, global_vars, vars, funcs, classes, loop_starts, depth, func_data)?;
             let (_, _, unpatched_breaks) = loop_starts.pop().unwrap();
+            let never_exits: bool = matches!(**condition, Expression::Literal(LiteralType::Bool(true))) && unpatched_breaks.is_empty();
 
             opcodes.push(OpCode::Jump(skip_index + 1));
 
@@ -295,7 +296,7 @@ fn flatten_statement(statement: &Statement, opcodes: &mut Vec<OpCode>, global_va
                 *opcodes.get_mut(index).unwrap() = OpCode::Jump(end_index);
             }
 
-            return Ok(false);
+            return Ok(never_exits);
         },
         Statement::Print(expression) => {
             let d: DataType = flatten_expression(expression, opcodes, global_vars, vars, funcs, classes)?;
