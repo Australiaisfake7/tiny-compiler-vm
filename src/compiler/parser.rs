@@ -753,10 +753,9 @@ impl Parser {
             Token::Identifier(name) => Ok(Box::new(Expression::Variable(name.clone()))),
             Token::LeftBracket => {
                 let expr: Box<Expression> = self.expression()?;
-                match self.advance() {
-                    Ok(t) if t == &Token::RightBracket => return Ok(expr),
-                    Ok(t) => return Err(ParseError::UnexpectedToken { expected: ")", got: t.clone() }),
-                    Err(e) => Err(e),
+                match self.advance()? {
+                    t if t == &Token::RightBracket => return Ok(expr),
+                    t => return Err(ParseError::UnexpectedToken { expected: "')'", got: t.clone() }),
                 }
             
             },
@@ -767,7 +766,7 @@ impl Parser {
                     match self.advance()? {
                         Token::Semicolon => vec.push(*self.expression()?),
                         Token::RightSquare => break,
-                        _ => return Err(ParseError::UnexpectedToken { expected: "';'", got: self.peek()?.clone() }),
+                        t => return Err(ParseError::UnexpectedToken { expected: "';' or ']'", got: t.clone() }),
                     }
                 }
 
