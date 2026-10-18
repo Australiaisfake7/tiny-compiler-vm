@@ -18,6 +18,7 @@ pub enum OpCode {
     NewInstance(usize),
     Exit,
     GetArrayMember, SetArrayMember, NewArray(usize), CloneArray,
+    Assert,
 }
 #[derive(Debug)]
 pub enum FlattenError {
@@ -35,6 +36,7 @@ pub enum FlattenError {
     UndeclaredDataType(DataType),
     UnexpectedAccessTarget(Box<Expression>), ArrayIndexOutOfBounds { array: Box<Expression>, index: i64 }, UnexpectedIndexType(Box<Expression>),
     UnexpectedArrayLiteralValueType { array: Expression, index: usize }, UnknownArrayLiteralType(Expression),
+    UnexpectedAssertExpressionType(Box<Expression>),
 }
 
 impl fmt::Display for FlattenError {
@@ -98,7 +100,9 @@ impl fmt::Display for FlattenError {
             FlattenError::UnexpectedIndexType(expr) =>
                 write!(f, "attempted to index array with expression {expr:?} which is of invalid type"),
             FlattenError::UnknownArrayLiteralType(array) =>
-                write!(f, "could not implicitly determine the type of array literal {array:?}")
+                write!(f, "could not implicitly determine the type of array literal {array:?}"),
+            FlattenError::UnexpectedAssertExpressionType(expr) => 
+                write!(f, "assert operator used on expression {expr:?} of unexpected type"),
         }
     }
 }
@@ -803,6 +807,15 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
             }
         },
         Expression::ArrayLiteral(_) => flatten_expression_expected(expression, opcodes, global_vars, vars, funcs, classes, None),
+        Expression::Assert(expr) => {
+            let d: DataType = match flatten_expression(expr, opcodes, global_vars, vars, funcs, classes)? {
+                DataType::Nullable(d) => *d,
+                _ => return Err(FlattenError::UnexpectedAssertExpressionType(expr.clone())),
+            };
+
+            opcodes.push(OpCode::Assert);
+            Ok(d)
+        }
     }
 }
 fn flatten_expression_expected(expression: &Expression, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &HashMap<String, ClassData>, expected_data_type: Option<&DataType>) -> Result<DataType, FlattenError> {

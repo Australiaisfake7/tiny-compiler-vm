@@ -66,6 +66,7 @@ pub enum VmError {
     IntegerOutOfBoundsUnary { opcode: OpCode, operand: i64 },
     IntegerOutOfBoundsBinary { opcode: OpCode, left: i64, right: i64 },
     ArrayIndexOutOfBounds { array: ArrayData, index: i64 },
+    AssertOnNull,
 }
 
 impl fmt::Display for VmError {
@@ -92,7 +93,8 @@ impl fmt::Display for VmError {
             VmError::ArrayIndexOutOfBounds { array, index } => write!(f, "index {index} out of bounds for array {}", Value::Array(array.clone())),
             VmError::TypeMismatchArrayAccess(value) => write!(f, "type mismatch attepmting to index value {value} as array"),
             VmError::TypeMismatchCloneArray(value) => write!(f, "type mismatch attempting to clone value {value} as array"),
-            VmError::TypeMismatchIndex(value) => write!(f, "type mismatch uising {value} as index"),
+            VmError::TypeMismatchIndex(value) => write!(f, "type mismatch using {value} as index"),
+            VmError::AssertOnNull => write!(f, "assert called on null value"),
         }
     }
 }
@@ -401,6 +403,11 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
 
             stack.push(Value::Array(clone_array(array)))?;
         },
+        OpCode::Assert => {
+            if stack.peek()? == &Value::Null {
+                return Err(VmError::AssertOnNull);
+            }
+        }
     };
 
     Ok(ReturnCode::None)

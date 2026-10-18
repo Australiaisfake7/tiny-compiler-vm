@@ -16,6 +16,8 @@ pub enum Token {
     If, Else, For, While, Class, Return, Continue, Break,
 
     EOF,
+
+    Assert,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -116,6 +118,7 @@ impl<'a> Scanner<'a> {
             },
             Some('!') => {
                 if self.match_advance('=') { Ok(Token::NotEqual) }
+                else if self.match_advance('!') { Ok(Token::Assert) }
                 else { Ok(Token::LNot) }
             },
             Some('<') => {
