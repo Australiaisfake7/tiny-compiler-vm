@@ -100,6 +100,7 @@ pub enum Expression {
         index: Box<Expression>,
     },
     ArrayLiteral(Vec<Expression>),
+    Assert(Box<Expression>),
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -735,6 +736,9 @@ impl Parser {
                 }
 
                 expr = Box::new(Expression::ArrayAccess { target: expr, index });
+            }
+            else if self.match_advance(&[Token::Assert]) {
+                expr = Box::new(Expression::Assert(expr));
             }
             else {
                 break;
