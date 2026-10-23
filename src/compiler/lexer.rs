@@ -4,7 +4,7 @@ use std::str::Chars;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     LeftBracket, RightBracket, LeftBrace, RightBrace, LeftSquare, RightSquare,
-    Dot, Minus, Plus, Slash, Asterisk, Semicolon, Colon, Question,
+    Dot, Minus, Plus, Slash, Asterisk, Semicolon, Colon, Question, QuestionQuestion, QuestionDot,
 
     Identifier(String), String(String), Int(i64), Float(f64), Bool(bool),
 
@@ -107,7 +107,11 @@ impl<'a> Scanner<'a> {
             Some('*') => Ok(Token::Asterisk),
             Some(';') => Ok(Token::Semicolon),
             Some(':') => Ok(Token::Colon),
-            Some('?') => Ok(Token::Question),
+            Some('?') => {
+                if self.match_advance('?') { Ok(Token::QuestionQuestion) }
+                else if self.match_advance('.') { Ok(Token::QuestionDot) }
+                else { Ok(Token::Question) }
+            },
             Some('/') => {
                 if self.match_advance('/') { self.skip_comments() }
                 else { Ok(Token::Slash) }

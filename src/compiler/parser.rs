@@ -45,6 +45,7 @@ pub enum BinaryOp {
     GreaterEqual,
     LAnd,
     LOr,
+    Coalesce,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOp {
@@ -101,6 +102,11 @@ pub enum Expression {
     },
     ArrayLiteral(Vec<Expression>),
     Assert(Box<Expression>),
+    SafeAccess {
+        class: Box<Expression>,
+        member: String,
+    },
+    Evaluated(DataType),
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -547,7 +553,7 @@ impl Parser {
         return self.assignment();
     }
     fn assignment(&mut self) -> Result<Box<Expression>, ParseError> {
-        let expr: Box<Expression> = self.logical_or()?;
+        let expr: Box<Expression> = self.null_coalesce()?;
 
         if self.match_advance(&[Token::Assign]) {
             let value: Box<Expression> = self.assignment()?;
@@ -556,6 +562,16 @@ impl Parser {
                 Expression::Variable(_) | Expression::MemberAccess { .. } | Expression::ArrayAccess { .. } => return Ok(Box::new(Expression::Assignment { target: expr, value })),
                 _ => return Err(ParseError::UnexpectedAssignmentTarget(expr)),
             }
+        }
+
+        Ok(expr)
+    }
+    fn null_coalesce(&mut self) -> Result<Box<Expression>, ParseError> {
+        let mut expr :Box<Expression> = self.logical_or()?;
+
+        while self.match_advance(&[Token::QuestionQuestion]) {
+            let right: Box<Expression> = self.logical_or()?;
+            expr = Box::new(Expression::Binary { left: expr, operator: BinaryOp::Coalesce, right });
         }
 
         Ok(expr)
@@ -722,6 +738,15 @@ impl Parser {
             else if self.match_advance(&[Token::Dot]) {
                 if let Token::Identifier(member) = self.peek()?.clone() {
                     expr = Box::new(Expression::MemberAccess { class: expr, member });
+                    self.advance()?;
+                }
+                else {
+                    return Err(ParseError::UnexpectedToken { expected: "Identifier", got: self.peek()?.clone() });
+                }
+            }
+            else if self.match_advance(&[Token::QuestionDot]) {
+                if let Token::Identifier(member) = self.peek()?.clone() {
+                    expr = Box::new(Expression::SafeAccess { class: expr, member });
                     self.advance()?;
                 }
                 else {
