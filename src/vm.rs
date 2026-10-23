@@ -407,7 +407,17 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             if stack.peek()? == &Value::Null {
                 return Err(VmError::AssertOnNull);
             }
-        }
+        },
+        OpCode::JumpIfNull(index) => {
+            if matches!(stack.peek()?, Value::Null) {
+                *ptr = *index;
+            }
+        },
+        OpCode::JumpIfNotNull(index) => {
+            if !matches!(stack.peek()?, Value::Null) {
+                *ptr = *index;
+            }
+        },
     };
 
     Ok(ReturnCode::None)

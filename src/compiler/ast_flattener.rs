@@ -10,6 +10,7 @@ pub enum OpCode {
     LNot, Negate, Add, Subtract, Multiply, Divide,
     Equal, Greater, GreaterEqual, Less, LessEqual, NotEqual,
     JumpIfTrue { index: usize, pop: bool }, JumpIfFalse { index: usize, pop: bool }, Jump(usize),
+    JumpIfNull(usize), JumpIfNotNull(usize),
     GetVar(usize), SetVar(usize),
     GetGlobal(usize), SetGlobal(usize), DefineGlobal,
     Call { index: usize, parameters: usize }, CallVirtual { slot: usize, parameters: usize },
@@ -36,7 +37,7 @@ pub enum FlattenError {
     UndeclaredDataType(DataType),
     UnexpectedAccessTarget(Box<Expression>), ArrayIndexOutOfBounds { array: Box<Expression>, index: i64 }, UnexpectedIndexType(Box<Expression>),
     UnexpectedArrayLiteralValueType { array: Expression, index: usize }, UnknownArrayLiteralType(Expression),
-    UnexpectedAssertExpressionType(Box<Expression>),
+    UnexpectedAssertExpressionType(Box<Expression>), UnexpectedSafeAccesExpressionType(Expression),
 }
 
 impl fmt::Display for FlattenError {
@@ -103,6 +104,8 @@ impl fmt::Display for FlattenError {
                 write!(f, "could not implicitly determine the type of array literal {array:?}"),
             FlattenError::UnexpectedAssertExpressionType(expr) => 
                 write!(f, "assert operator used on expression {expr:?} of unexpected type"),
+            FlattenError::UnexpectedSafeAccesExpressionType(expr) =>
+                write!(f, "receieved expression {expr:?} of unexpected type for safe member access"),
         }
     }
 }
@@ -750,6 +753,9 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                     }
                     Err(FlattenError::ExpressionIsNotClass(class.clone()))
                 },
+                Expression::SafeAccess { class, member } => {
+                    safe_member_access(class, member, Some(parameters), opcodes, global_vars, vars, funcs, classes)
+                }
                 _ => return Err(FlattenError::InvalidFunctionCallee(callee.clone())),
             }
         },
@@ -815,7 +821,11 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
 
             opcodes.push(OpCode::Assert);
             Ok(d)
-        }
+        },
+        Expression::SafeAccess { class, member } => {
+            safe_member_access(class, member, None, opcodes, global_vars, vars, funcs, classes)
+        },
+        Expression::Evaluated(d) => Ok(d.clone())
     }
 }
 fn flatten_expression_expected(expression: &Expression, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &HashMap<String, ClassData>, expected_data_type: Option<&DataType>) -> Result<DataType, FlattenError> {
@@ -947,6 +957,7 @@ fn flatten_binary(left: &Box<Expression>, operator: &BinaryOp, right: &Box<Expre
         BinaryOp::LAnd => {
             short_circuit_binary(left, right, false, opcodes, global_vars, vars, funcs, classes)?
         },
+        BinaryOp::Coalesce => coalesce_binary(left, right, opcodes, global_vars, vars, funcs, classes)?,
     };
 
     Ok(d)
@@ -984,6 +995,25 @@ fn short_circuit_binary(left: &Box<Expression>, right: &Box<Expression>, jump_on
     *opcodes.get_mut(start_index).unwrap() = if jump_on { OpCode::JumpIfTrue { index: opcodes.len(), pop: false } } else { OpCode::JumpIfFalse { index: opcodes.len(), pop: false } };
 
     Ok(DataType::Bool)
+}
+
+fn coalesce_binary(left: &Expression, right: &Expression, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
+    let l: DataType = flatten_expression(left, opcodes, global_vars, vars, funcs, classes)?;
+
+    let jump_index: usize = opcodes.len();
+    opcodes.push(OpCode::JumpIfNotNull(0));
+    opcodes.push(OpCode::Pop(1));
+
+    let r: DataType = flatten_expression(right, opcodes, global_vars, vars, funcs, classes)?;
+
+    *opcodes.get_mut(jump_index).unwrap() = OpCode::JumpIfNotNull(opcodes.len());
+
+    if let Some(d) = unify_types(&l, &r, classes) {
+        Ok(d)
+    }
+    else {
+        Err(FlattenError::UnexpectedBinaryOpOperands { left: l, operator: BinaryOp::Coalesce, right: r })
+    }
 }
 
 fn flatten_function(name: &str, data: &FunctionData, opcodes: &mut Vec<OpCode>, global_vars: &mut Vec<(String, DataType)>, funcs: &mut HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &mut HashMap<String, ClassData>, loop_starts: &mut Vec<(usize, usize, Vec<usize>)>, depth: usize, class_name: Option<&String>) -> Result<(), FlattenError> {
@@ -1156,4 +1186,55 @@ fn is_const_index_invalid(len: usize, index: &Box<Expression>) -> Option<i64> {
         } 
     }
     None
+}
+
+fn safe_member_access(class: &Box<Expression>, member: &String, parameters: Option<&Vec<Expression>>, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
+    let d: DataType = match flatten_expression(&class, opcodes, global_vars, vars, funcs, classes)? {
+        DataType::Nullable(inner) if matches!(*inner, DataType::Instance(_)) => *inner,
+        _ => return Err(FlattenError::ExpressionIsNotClass(class.clone()))
+    };
+
+    let jump_index: usize = opcodes.len();
+    opcodes.push(OpCode::JumpIfNull(0));
+
+    let access: Expression = Expression::MemberAccess { class: Box::new(Expression::Evaluated(d)), member: member.clone() };
+    let expr: Expression = if let Some(p) = parameters {
+        Expression::Call { callee: Box::new(access), parameters: p.clone() }
+    }
+    else {
+        access
+    };
+    let result: DataType = flatten_expression(&expr, opcodes, global_vars, vars, funcs, classes)?;
+
+    *opcodes.get_mut(jump_index).unwrap() = OpCode::JumpIfNull(opcodes.len());
+
+    Ok(match result {
+        DataType::Void => DataType::Void,
+        DataType::Nullable(_) => result,
+        d => DataType::Nullable(Box::new(d)),
+    })
+}
+
+fn unify_types(left: &DataType, right: &DataType, classes: &HashMap<String, ClassData>) -> Option<DataType> {
+    match left {
+        DataType::Nullable(inner_left) => {
+            match right {
+                DataType::Nullable(inner_right) => {
+                    if is_compatible(&inner_left, &inner_right, classes) {
+                        Some(DataType::Nullable(inner_left.clone()))
+                    }
+                    else {
+                        None
+                    }
+                },
+                r => if is_compatible(&inner_left, &r, classes) {
+                    Some(*inner_left.clone())
+                }
+                else {
+                    None
+                }
+            }
+        },
+        _ => None,
+    }
 }
