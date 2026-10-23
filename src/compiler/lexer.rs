@@ -1,6 +1,8 @@
 use std::fmt;
 use std::str::Chars;
 
+use crate::error::Span;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     LeftBracket, RightBracket, LeftBrace, RightBrace, LeftSquare, RightSquare,
@@ -26,16 +28,86 @@ pub enum DataType {
     Instance(String), Array(Box<DataType>, usize),
 }
 
+impl fmt::Display for DataType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DataType::Int => write!(f, "int"),
+            DataType::Float => write!(f, "float"),
+            DataType::String => write!(f, "string"),
+            DataType::Bool => write!(f, "bool"),
+            DataType::Null => write!(f, "null"),
+            DataType::Void => write!(f, "void"),
+            DataType::Nullable(inner) => write!(f, "{inner}?"),
+            DataType::Instance(name) => write!(f, "{name}"),
+            DataType::Array(inner, len) => write!(f, "{inner}[{len}]"),
+        }
+    }
+}
+
+/// Describes a token the way it should appear in an error message ("found ...").
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let symbol: &str = match self {
+            Token::LeftBracket => "(", Token::RightBracket => ")",
+            Token::LeftBrace => "{", Token::RightBrace => "}",
+            Token::LeftSquare => "[", Token::RightSquare => "]",
+            Token::Dot => ".", Token::Minus => "-", Token::Plus => "+", Token::Slash => "/",
+            Token::Asterisk => "*", Token::Semicolon => ";", Token::Colon => ":",
+            Token::Question => "?", Token::QuestionQuestion => "??", Token::QuestionDot => "?.",
+            Token::Assign => "=", Token::Equal => "==", Token::NotEqual => "!=",
+            Token::Less => "<", Token::Greater => ">", Token::LessEqual => "<=", Token::GreaterEqual => ">=",
+            Token::LAnd => "&&", Token::LOr => "||", Token::LNot => "!", Token::Assert => "!!",
+            Token::Print => "print", Token::Fun => "fun", Token::Static => "static",
+            Token::Null => "null", Token::Void => "void", Token::Override => "override",
+            Token::If => "if", Token::Else => "else", Token::For => "for", Token::While => "while",
+            Token::Class => "class", Token::Return => "return", Token::Continue => "continue",
+            Token::Break => "break",
+            Token::Bool(true) => "true", Token::Bool(false) => "false",
+            Token::DataType(data_type) => return write!(f, "'{data_type}'"),
+            Token::Identifier(name) => return write!(f, "identifier '{name}'"),
+            Token::String(value) => return write!(f, "string \"{value}\""),
+            Token::Int(value) => return write!(f, "integer {value}"),
+            Token::Float(value) => return write!(f, "float {value:?}"),
+            Token::EOF => return write!(f, "end of input"),
+        };
+
+        write!(f, "'{symbol}'")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LexErrorKind {
+    InvalidCharacter(char),
+    /// A two character operator (`&&`, `||`) that was cut short.
+    IncompleteOperator { expected: &'static str },
+    UnterminatedString,
+    IntegerOutOfRange(String),
+    InvalidNumber(String),
+}
+
+impl fmt::Display for LexErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LexErrorKind::InvalidCharacter(c) => write!(f, "invalid character '{c}'"),
+            LexErrorKind::IncompleteOperator { expected } =>
+                write!(f, "expected '{expected}', found a single '{}'", &expected[..1]),
+            LexErrorKind::UnterminatedString => write!(f, "unterminated string literal"),
+            LexErrorKind::IntegerOutOfRange(text) =>
+                write!(f, "integer literal '{text}' does not fit in a 64-bit integer"),
+            LexErrorKind::InvalidNumber(text) => write!(f, "invalid number literal '{text}'"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct LexError {
-    _message: String,
-    _line: usize,
-    _character: usize,
+    pub kind: LexErrorKind,
+    pub span: Span,
 }
 
 impl fmt::Display for LexError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} (line {}, character {})", self._message, self._line, self._character)
+        write!(f, "lexical error at {}: {}", self.span, self.kind)
     }
 }
 
@@ -43,37 +115,39 @@ impl std::error::Error for LexError {}
 
 struct Scanner<'a> {
     source: Chars<'a>,
-    _line: usize,
-    _character: usize,
-}
-
-impl<'a> Default for Scanner<'a> {
-    fn default() -> Self {
-        return Self {
-            source: "".chars(),
-            _line: 1,
-            _character: 0,
-        };
-    }
+    line: usize,
+    column: usize,
+    /// Where the token most recently returned by `read_next_token` starts.
+    token_start: Span,
 }
 
 impl<'a> Scanner<'a> {
     fn from_source(source: Chars<'a>) -> Self {
         return Self {
             source: source,
-            ..Default::default()
+            line: 1,
+            column: 0,
+            token_start: Span { line: 1, column: 0 },
         };
     }
-    fn new() -> Self {
-        return Default::default();
+    /// The position of the character most recently consumed. Columns are 1-based; the newline
+    /// that ends a line, and the end of input after one, are reported at column 1 of their line.
+    fn here(&self) -> Span {
+        Span { line: self.line, column: self.column.max(1) }
+    }
+    fn error_here(&self, kind: LexErrorKind) -> LexError {
+        LexError { kind, span: self.here() }
+    }
+    fn error_at_token_start(&self, kind: LexErrorKind) -> LexError {
+        LexError { kind, span: self.token_start }
     }
     fn advance(&mut self) -> Option<char> {
         match self.peek() {
             Some('\n') => {
-                self._line += 1;
-                self._character = 0;
+                self.line += 1;
+                self.column = 0;
             },
-            Some(_) => { self._character += 1; },
+            Some(_) => { self.column += 1; },
             None => (),
         }
         return self.source.next();
@@ -94,7 +168,10 @@ impl<'a> Scanner<'a> {
         }
     }
     fn read_next_token(&mut self) -> Result<Token, LexError> {
-        return match self.advance() {
+        let first: Option<char> = self.advance();
+        self.token_start = self.here();
+
+        return match first {
             Some('{') => Ok(Token::LeftBrace),
             Some('}') => Ok(Token::RightBrace),
             Some('(') => Ok(Token::LeftBracket),
@@ -135,23 +212,11 @@ impl<'a> Scanner<'a> {
             },
             Some('&') => {
                 if self.match_advance('&') { Ok(Token::LAnd) }
-                else {
-                    Err(LexError {
-                        _message: "Expected '&&', single '&' is not valid.".to_string(),
-                        _line: self._line,
-                        _character: self._character,
-                    })
-                }
+                else { Err(self.error_here(LexErrorKind::IncompleteOperator { expected: "&&" })) }
             },
             Some('|') => {
                 if self.match_advance('|') { Ok(Token::LOr) }
-                else {
-                    Err(LexError {
-                        _message: "Expected '||', single '|' is not valid.".to_string(),
-                        _line: self._line,
-                        _character: self._character,
-                    })
-                }
+                else { Err(self.error_here(LexErrorKind::IncompleteOperator { expected: "||" })) }
             },
             Some('"') => {
                 let mut s: String = String::new();
@@ -159,19 +224,12 @@ impl<'a> Scanner<'a> {
                     match self.advance() {
                         Some('"') => break,
                         Some(c) => s.push(c),
-                        None => return Err(LexError {
-                            _message: "Unfinished string literal".to_string(),
-                            _line: self._line,
-                            _character: self._character,
-                        }),
+                        None => return Err(self.error_at_token_start(LexErrorKind::UnterminatedString)),
                     }
                 }
                 Ok(Token::String(s))
             },
             Some(c) if c.is_ascii_digit() => {
-                let _line: usize = self._line;
-                let _character: usize = self._character;
-                
                 let mut s: String = c.to_string();
                 let mut is_float: bool = false;
                 
@@ -186,13 +244,13 @@ impl<'a> Scanner<'a> {
                 if is_float {
                     match s.parse::<f64>() {
                         Ok(n) => Ok(Token::Float(n)),
-                        Err(e) => Err(LexError { _message: e.to_string(), _line: _line, _character: _character }),
+                        Err(_) => Err(self.error_at_token_start(LexErrorKind::InvalidNumber(s))),
                     }
                 }
                 else {
                     match s.parse::<i64>() {
                         Ok(n) => Ok(Token::Int(n)),
-                        Err(e) => Err(LexError { _message: e.to_string(), _line: _line, _character: _character }),
+                        Err(_) => Err(self.error_at_token_start(LexErrorKind::IntegerOutOfRange(s))),
                     }
                 }
             },
@@ -243,11 +301,7 @@ impl<'a> Scanner<'a> {
 
                 self.read_next_token()
             }
-            Some(invalid) => Err(LexError { 
-                _message: format!("Invalid character {} found", invalid),
-                _line: self._line,
-                _character: self._character 
-            }),
+            Some(invalid) => Err(self.error_here(LexErrorKind::InvalidCharacter(invalid))),
             None => Ok(Token::EOF),
         };
     }
@@ -266,15 +320,21 @@ impl<'a> Scanner<'a> {
     }
 }
 
-pub fn lex_chars(chars: Chars<'_>) -> Result<Vec<Token>, LexError> {
+/// Splits source text into tokens. `spans[i]` is where `tokens[i]` starts; the last token is
+/// always `Token::EOF`.
+pub fn lex_chars(chars: Chars<'_>) -> Result<(Vec<Token>, Vec<Span>), LexError> {
     let mut scanner: Scanner = Scanner::from_source(chars);
     let mut tokens: Vec<Token> = Vec::new();
+    let mut spans: Vec<Span> = Vec::new();
     loop {
-        let token = scanner.read_next_token();
-        match token {
-            Ok(t) if matches!(t, Token::EOF) => { tokens.push(t); return Ok(tokens); },
-            Ok(t) => tokens.push(t),
-            Err(e) => return Err(e),
+        let token: Token = scanner.read_next_token()?;
+        let is_eof: bool = matches!(token, Token::EOF);
+
+        tokens.push(token);
+        spans.push(scanner.token_start);
+
+        if is_eof {
+            return Ok((tokens, spans));
         }
     }
 }

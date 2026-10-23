@@ -42,64 +42,122 @@ impl PartialEq for Value {
     }
 }
 
+/// A failure while running a program.
+///
+/// A program that passed the compiler can still hit the first group of variants (arithmetic,
+/// bounds checks, null assertions). `InvalidBytecode` means the bytecode itself is malformed,
+/// which a compiler bug or a damaged `.tb` file can cause. Type names (`&'static str`) are
+/// carried instead of values so the error does not keep program data alive.
 #[derive(Debug)]
 pub enum VmError {
     StackOverflow,
-    NoValueOnStack,
-    TypeMismatchUnary { opcode: OpCode, operand: Value },
-    TypeMismatchBinary { opcode: OpCode, left: Value, right: Value },
-    TypeMismatchJump(Value),
-    TypeMismatchMemberAccess(Value),
-    TypeMismatchIndex(Value),
-    TypeMismatchArrayAccess(Value),
-    TypeMismatchCloneArray(Value),
+    CallStackOverflow,
+    DivisionByZero,
+    NegationOverflow(i64),
+    ArithmeticOverflow { left: i64, op: &'static str, right: i64 },
+    ArrayIndexOutOfBounds { index: i64, len: usize },
+    AssertOnNull,
+    InvalidUnaryOperand { op: &'static str, operand: &'static str },
+    InvalidBinaryOperands { op: &'static str, left: &'static str, right: &'static str },
+    NonBoolCondition(&'static str),
+    NotAnInstance(&'static str),
+    NotAnArray(&'static str),
+    InvalidIndexType(&'static str),
+    InvalidBytecode(InvalidBytecode),
+}
+
+#[derive(Debug)]
+pub enum InvalidBytecode {
     JumpOutOfBounds(usize),
+    StackUnderflow,
     StackIndexOutOfBounds(usize),
     GlobalIndexOutOfBounds(usize),
     RebaseOutsideStack(usize),
-    NoAddressOnCallStack,
-    InstanceMissingMember { instance_id: usize, member: usize },
-    ClassIndexOutOfBounds(usize),
-    VtableIndexOutOfBounds { slot: usize, class: usize },
-    CallStackOverflow,
-    DivisionByZero,
-    IntegerOutOfBoundsUnary { opcode: OpCode, operand: i64 },
-    IntegerOutOfBoundsBinary { opcode: OpCode, left: i64, right: i64 },
-    ArrayIndexOutOfBounds { array: ArrayData, index: i64 },
-    AssertOnNull,
+    EmptyCallStack,
+    ClassOutOfBounds(usize),
+    VtableSlotOutOfBounds { class: usize, slot: usize },
+    MemberOutOfBounds { class: usize, member: usize },
+}
+
+impl fmt::Display for InvalidBytecode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InvalidBytecode::JumpOutOfBounds(index) => write!(f, "jump target {index} is outside the program"),
+            InvalidBytecode::StackUnderflow => write!(f, "a value was popped from an empty stack frame"),
+            InvalidBytecode::StackIndexOutOfBounds(index) => write!(f, "stack index {index} is out of bounds"),
+            InvalidBytecode::GlobalIndexOutOfBounds(index) => write!(f, "global index {index} is out of bounds"),
+            InvalidBytecode::RebaseOutsideStack(index) => write!(f, "cannot rebase the stack to index {index}, which is outside the stack"),
+            InvalidBytecode::EmptyCallStack => write!(f, "returned with no return address on the call stack"),
+            InvalidBytecode::ClassOutOfBounds(class) => write!(f, "class {class} does not exist"),
+            InvalidBytecode::VtableSlotOutOfBounds { class, slot } => write!(f, "class {class} has no vtable slot {slot}"),
+            InvalidBytecode::MemberOutOfBounds { class, member } => write!(f, "an instance of class {class} has no member {member}"),
+        }
+    }
 }
 
 impl fmt::Display for VmError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "runtime error: ")?;
+
         match self {
             VmError::StackOverflow => write!(f, "stack overflow"),
-            VmError::NoValueOnStack => write!(f, "no value on stack"),
-            VmError::TypeMismatchUnary { opcode, operand } => write!(f, "type mismatch of value {operand:?} with opcode {opcode:?}"),
-            VmError::TypeMismatchBinary { opcode, left, right } => write!(f, "type mismatch of values {left:?} and {right:?} with opcode {opcode:?}"),
-            VmError::TypeMismatchJump(operand) => write!(f, "type mismatch for conditional jump {operand:?}"),
-            VmError::TypeMismatchMemberAccess(value) => write!(f, "type mismatch for member access instance {value}"),
-            VmError::JumpOutOfBounds(index) => write!(f, "jump index {index} out of bounds"),
-            VmError::StackIndexOutOfBounds(index) => write!(f, "stack index {index} out of bounds"),
-            VmError::GlobalIndexOutOfBounds(index) => write!(f, "global index {index} out of bounds"),
-            VmError::RebaseOutsideStack(index) => write!(f, "attempted to rebase stack to index {index} which is outside stack"),
-            VmError::NoAddressOnCallStack => write!(f, "no return address on call stack"),
-            VmError::InstanceMissingMember { instance_id, member } => write!(f, "attemted to access member {member} on instance {instance_id} which does not exist"),
-            VmError::ClassIndexOutOfBounds(index) => write!(f, "attempted to access class {index} which does not exist"),
-            VmError::VtableIndexOutOfBounds { slot, class } => write!(f, "attempted to access vtable slot {slot} on class {class} which does not exist"),
             VmError::CallStackOverflow => write!(f, "call stack overflow"),
             VmError::DivisionByZero => write!(f, "division by zero"),
-            VmError::IntegerOutOfBoundsUnary { opcode, operand } => write!(f, "integer overflow on operation {opcode:?} with operand {operand}"),
-            VmError::IntegerOutOfBoundsBinary { opcode, left, right } => write!(f, "integer overflow on operation {opcode:?} with operands {left} and {right}"),
-            VmError::ArrayIndexOutOfBounds { array, index } => write!(f, "index {index} out of bounds for array {}", Value::Array(array.clone())),
-            VmError::TypeMismatchArrayAccess(value) => write!(f, "type mismatch attepmting to index value {value} as array"),
-            VmError::TypeMismatchCloneArray(value) => write!(f, "type mismatch attempting to clone value {value} as array"),
-            VmError::TypeMismatchIndex(value) => write!(f, "type mismatch using {value} as index"),
-            VmError::AssertOnNull => write!(f, "assert called on null value"),
+            VmError::NegationOverflow(operand) => write!(f, "integer overflow in '-({operand})'"),
+            VmError::ArithmeticOverflow { left, op, right } => write!(f, "integer overflow in '{left} {op} {right}'"),
+            VmError::ArrayIndexOutOfBounds { index, len } => write!(f, "index {index} is out of bounds for an array of length {len}"),
+            VmError::AssertOnNull => write!(f, "'!!' applied to a null value"),
+            VmError::InvalidUnaryOperand { op, operand } => write!(f, "cannot apply '{op}' to an operand of type '{operand}'"),
+            VmError::InvalidBinaryOperands { op, left, right } => write!(f, "cannot apply '{op}' to operands of type '{left}' and '{right}'"),
+            VmError::NonBoolCondition(found) => write!(f, "a condition must be of type 'bool', found '{found}'"),
+            VmError::NotAnInstance(found) => write!(f, "cannot access a member of a value of type '{found}'"),
+            VmError::NotAnArray(found) => write!(f, "cannot use a value of type '{found}' as an array"),
+            VmError::InvalidIndexType(found) => write!(f, "array index must be of type 'int', found '{found}'"),
+            VmError::InvalidBytecode(invalid) => write!(f, "invalid bytecode: {invalid}"),
         }
     }
 }
 
 impl std::error::Error for VmError {}
+
+impl From<InvalidBytecode> for VmError {
+    fn from(invalid: InvalidBytecode) -> Self {
+        VmError::InvalidBytecode(invalid)
+    }
+}
+
+impl Value {
+    /// The name of this value's type as it is written in source code.
+    fn type_name(&self) -> &'static str {
+        match self {
+            Value::Int(_) => "int",
+            Value::Float(_) => "float",
+            Value::String(_) => "string",
+            Value::Bool(_) => "bool",
+            Value::Null => "null",
+            Value::Instance(_) => "instance",
+            Value::Array(_) => "array",
+        }
+    }
+}
+
+/// The source symbol of an arithmetic, comparison or logical opcode, for error messages.
+fn operator_symbol(opcode: &OpCode) -> &'static str {
+    match opcode {
+        OpCode::LNot => "!",
+        OpCode::Negate | OpCode::Subtract => "-",
+        OpCode::Add => "+",
+        OpCode::Multiply => "*",
+        OpCode::Divide => "/",
+        OpCode::Equal => "==",
+        OpCode::NotEqual => "!=",
+        OpCode::Less => "<",
+        OpCode::LessEqual => "<=",
+        OpCode::Greater => ">",
+        OpCode::GreaterEqual => ">=",
+        _ => "?",
+    }
+}
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -111,25 +169,8 @@ impl fmt::Display for Value {
             Value::String(s) => write!(f, "{s}"),
             Value::Instance(i) => write!(f, "instance of class {}", i.borrow().id),
             Value::Array(a) => {
-                let values: &[Value] = &a.borrow();
-                let mut strs: Vec<String> = Vec::with_capacity(values.len());
-                let mut char_len: usize = 0;
-
-                for v in values {
-                    let s: String = v.to_string();
-                    char_len += s.len() + 2;
-                    strs.push(s);
-                }
-
-                let mut str: String = String::with_capacity(char_len);
-
-                for s in strs {
-                    str.push_str(&s);
-                    str.push_str(", ");
-                }
-                str.truncate(str.len() - 2);
-
-                write!(f, "[{str}]")
+                let items: Vec<String> = a.borrow().iter().map(|v| v.to_string()).collect();
+                write!(f, "[{}]", items.join(", "))
             },
         }
     }
@@ -148,7 +189,7 @@ impl Stack {
     
     fn pop(&mut self) -> Result<Value, VmError> {
         if self.size <= self.base {
-            return Err(VmError::NoValueOnStack);
+            return Err(InvalidBytecode::StackUnderflow.into());
         }
 
         self.size -= 1;
@@ -156,7 +197,7 @@ impl Stack {
     }
     fn pop_n(&mut self, n: usize) -> Result<(), VmError> {
         if self.size - self.base < n {
-            return Err(VmError::NoValueOnStack);
+            return Err(InvalidBytecode::StackUnderflow.into());
         }
 
         self.size -= n;
@@ -169,28 +210,28 @@ impl Stack {
     }
     fn peek(&self) -> Result<&Value, VmError> {
         if self.rebased_size() == 0 {
-            return Err(VmError::NoValueOnStack);
+            return Err(InvalidBytecode::StackUnderflow.into());
         }
 
         self.get(self.size - 1)
     }
     fn get(&self, index: usize) -> Result<&Value, VmError> {
         if index >= self.size {
-            return Err(VmError::StackIndexOutOfBounds(index));
+            return Err(InvalidBytecode::StackIndexOutOfBounds(index).into());
         }
 
         Ok(self.data.get(index).unwrap())
     }
     fn get_mut(&mut self, index: usize) -> Result<&mut Value, VmError> {
         if index >= self.size {
-            return Err(VmError::StackIndexOutOfBounds(index));
+            return Err(InvalidBytecode::StackIndexOutOfBounds(index).into());
         }
 
         Ok(self.data.get_mut(index).unwrap())
     }
     fn rebase(&mut self, index: usize) -> Result<(), VmError> {
         if self.size < index {
-            return Err(VmError::RebaseOutsideStack(index));
+            return Err(InvalidBytecode::RebaseOutsideStack(index).into());
         }
 
         self.base = index;
@@ -222,7 +263,7 @@ impl CallStack {
     }
     fn pop(&mut self) -> Result<(usize, usize), VmError> {
         if self.size == 0 {
-            return Err(VmError::NoAddressOnCallStack);
+            return Err(InvalidBytecode::EmptyCallStack.into());
         }
 
         self.size -= 1;
@@ -236,7 +277,7 @@ pub fn execute(mut data: CompiledData) -> Result<(), VmError> {
     let mut global_vars: Vec<Value> = Vec::new();
     let mut call_stack: CallStack = CallStack::new();
     loop {
-        let opcode: &OpCode = data.opcodes.get(ptr).ok_or(VmError::JumpOutOfBounds(ptr))?;
+        let opcode: &OpCode = data.opcodes.get(ptr).ok_or(InvalidBytecode::JumpOutOfBounds(ptr))?;
         ptr += 1;
         if execute_opcode(opcode, &mut stack, &mut ptr, &mut global_vars, &mut call_stack, &mut data.vtables, &mut data.field_counts)? == ReturnCode::Exit {
             break;
@@ -283,11 +324,11 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             *stack.get_mut(stack.base + *index)? = stack.peek()?.clone();
         },
         OpCode::DefineGlobal => global_vars.push(stack.pop()?),
-        OpCode::GetGlobal(i) => stack.push(global_vars.get(*i).map(|v| v.clone()).ok_or(VmError::GlobalIndexOutOfBounds(*i))?)?,
-        OpCode::SetGlobal(i) => *global_vars.get_mut(*i).ok_or(VmError::GlobalIndexOutOfBounds(*i))? = stack.peek()?.clone(),
+        OpCode::GetGlobal(i) => stack.push(global_vars.get(*i).map(|v| v.clone()).ok_or(InvalidBytecode::GlobalIndexOutOfBounds(*i))?)?,
+        OpCode::SetGlobal(i) => *global_vars.get_mut(*i).ok_or(InvalidBytecode::GlobalIndexOutOfBounds(*i))? = stack.peek()?.clone(),
         OpCode::Call { index, parameters } => {
             if stack.rebased_size() < *parameters {
-                return Err(VmError::NoValueOnStack);
+                return Err(InvalidBytecode::StackUnderflow.into());
             }
             call_stack.push((*ptr, stack.base))?;
             *ptr = *index;
@@ -305,26 +346,26 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
         },
         OpCode::CallVirtual { slot, parameters } => {
             if stack.rebased_size() < *parameters {
-                return Err(VmError::NoValueOnStack);
+                return Err(InvalidBytecode::StackUnderflow.into());
             }
             let instance: &Value = stack.get(stack.size - *parameters)?;
             if let Value::Instance(i) = instance {
                 call_stack.push((*ptr, stack.base))?;
                 let class_id: usize = i.borrow().id;
-                *ptr = *vtables.get(class_id).ok_or(VmError::ClassIndexOutOfBounds(class_id))?.get(*slot).ok_or(VmError::VtableIndexOutOfBounds { slot: *slot, class: class_id })?;
+                *ptr = *vtables.get(class_id).ok_or(InvalidBytecode::ClassOutOfBounds(class_id))?.get(*slot).ok_or(InvalidBytecode::VtableSlotOutOfBounds { class: class_id, slot: *slot })?;
                 stack.rebase(stack.size - *parameters)?;
             }
             else {
-                return Err(VmError::TypeMismatchMemberAccess(instance.clone()));
+                return Err(VmError::NotAnInstance(instance.type_name()));
             }
         },
         OpCode::GetMember(index) => {
             let value: Value = stack.pop()?;
             if let Value::Instance(instance) = value {
-                stack.push(instance.borrow().fields.get(*index).ok_or_else(|| VmError::InstanceMissingMember { instance_id: instance.borrow().id, member: *index })?.clone())?;
+                stack.push(instance.borrow().fields.get(*index).ok_or_else(|| InvalidBytecode::MemberOutOfBounds { class: instance.borrow().id, member: *index })?.clone())?;
             }
             else {
-                return Err(VmError::TypeMismatchMemberAccess(value));
+                return Err(VmError::NotAnInstance(value.type_name()));
             }
         },
         OpCode::SetMember(index) => {
@@ -337,16 +378,16 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
                     Some(field) => *field = value.clone(),
                     None => {
                         let instance_id = inst.id;
-                        return Err(VmError::InstanceMissingMember { instance_id, member: *index });
+                        return Err(InvalidBytecode::MemberOutOfBounds { class: instance_id, member: *index }.into());
                     }
                 }
                 stack.push(value)?;
             } else {
-                return Err(VmError::TypeMismatchMemberAccess(i_value));
+                return Err(VmError::NotAnInstance(i_value.type_name()));
             }
         },
         OpCode::NewInstance(id) => {
-            let count: usize = *field_counts.get(*id).ok_or(VmError::ClassIndexOutOfBounds(*id))?;
+            let count: usize = *field_counts.get(*id).ok_or(InvalidBytecode::ClassOutOfBounds(*id))?;
 
             stack.push(Value::Instance(Rc::new(RefCell::new(Instance { id: *id, fields: vec![Value::default(); count] }))))?;
         },
@@ -364,15 +405,16 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
         OpCode::GetArrayMember => {
             let index: i64 = match stack.pop()? {
                 Value::Int(i) => i,
-                v => return Err(VmError::TypeMismatchIndex(v)),
+                v => return Err(VmError::InvalidIndexType(v.type_name())),
             };
             let array: ArrayData = match stack.pop()? {
                 Value::Array(a) => a,
-                v => return Err(VmError::TypeMismatchArrayAccess(v)),
+                v => return Err(VmError::NotAnArray(v.type_name())),
             };
 
-            if index < 0 || index as usize >= array.borrow().len() {
-                return Err(VmError::ArrayIndexOutOfBounds { array, index });
+            let len: usize = array.borrow().len();
+            if index < 0 || index as usize >= len {
+                return Err(VmError::ArrayIndexOutOfBounds { index, len });
             }
 
             stack.push(array.borrow().get(index as usize).unwrap().clone())?;
@@ -381,15 +423,16 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             let value: Value = stack.pop()?;
             let index: i64 = match stack.pop()? {
                 Value::Int(i) => i,
-                v => return Err(VmError::TypeMismatchIndex(v)),
+                v => return Err(VmError::InvalidIndexType(v.type_name())),
             };
             let array: ArrayData = match stack.pop()? {
                 Value::Array(a) => a,
-                v => return Err(VmError::TypeMismatchArrayAccess(v)),
+                v => return Err(VmError::NotAnArray(v.type_name())),
             };
 
-            if index < 0 || index as usize >= array.borrow().len() {
-                return Err(VmError::ArrayIndexOutOfBounds { array, index });
+            let len: usize = array.borrow().len();
+            if index < 0 || index as usize >= len {
+                return Err(VmError::ArrayIndexOutOfBounds { index, len });
             }
 
             *array.borrow_mut().get_mut(index as usize).unwrap() = value.clone();
@@ -398,7 +441,7 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
         OpCode::CloneArray => {
             let array: ArrayData = match stack.pop()? {
                 Value::Array(a) => a,
-                v => return Err(VmError::TypeMismatchCloneArray(v)),
+                v => return Err(VmError::NotAnArray(v.type_name())),
             };
 
             stack.push(Value::Array(clone_array(array)))?;
@@ -428,9 +471,9 @@ fn apply_unary(opcode: &OpCode, a: Value) -> Result<Value, VmError> {
         (OpCode::LNot, Value::Bool(x)) => Ok(Value::Bool(!x)),
         (OpCode::Negate, Value::Int(x)) => x.checked_neg()
         .map(|v| Value::Int(v))
-        .ok_or_else(|| VmError::IntegerOutOfBoundsUnary { opcode: opcode.clone(), operand: x }),
+        .ok_or_else(|| VmError::NegationOverflow(x)),
         (OpCode::Negate, Value::Float(x)) => Ok(Value::Float(-x)),
-        (_, operand) => Err(VmError::TypeMismatchUnary { opcode: opcode.clone(), operand }),
+        (_, operand) => Err(VmError::InvalidUnaryOperand { op: operator_symbol(opcode), operand: operand.type_name() }),
     }
 }
 
@@ -438,24 +481,24 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, VmError> {
     match (opcode, a, b) {
         (OpCode::Add, Value::Int(x), Value::Int(y)) => x.checked_add(y)
         .map(|v| Value::Int(v))
-        .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
+        .ok_or_else(|| VmError::ArithmeticOverflow { left: x, op: operator_symbol(opcode), right: y }),
         (OpCode::Add, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x + y)),
         (OpCode::Add, Value::String(x), Value::String(y)) => Ok(Value::String(x + &y)),
 
         (OpCode::Subtract, Value::Int(x), Value::Int(y)) => x.checked_sub(y)
         .map(|v| Value::Int(v))
-        .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
+        .ok_or_else(|| VmError::ArithmeticOverflow { left: x, op: operator_symbol(opcode), right: y }),
         (OpCode::Subtract, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x - y)),
 
         (OpCode::Multiply, Value::Int(x), Value::Int(y)) => x.checked_mul(y)
         .map(|v| Value::Int(v))
-        .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
+        .ok_or_else(|| VmError::ArithmeticOverflow { left: x, op: operator_symbol(opcode), right: y }),
         (OpCode::Multiply, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x * y)),
 
         (OpCode::Divide, Value::Int(_), Value::Int(0)) => Err(VmError::DivisionByZero),
         (OpCode::Divide, Value::Int(x), Value::Int(y)) if y != 0 => x.checked_div(y)
         .map(|v| Value::Int(v))
-        .ok_or_else(|| VmError::IntegerOutOfBoundsBinary { opcode: opcode.clone(), left: x, right: y }),
+        .ok_or_else(|| VmError::ArithmeticOverflow { left: x, op: operator_symbol(opcode), right: y }),
         (OpCode::Divide, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x / y)),
 
         (OpCode::Less, Value::Int(x), Value::Int(y)) => Ok(Value::Bool(x < y)),
@@ -477,14 +520,14 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, VmError> {
         (OpCode::Equal, a, b) => Ok(Value::Bool(a == b)),
         (OpCode::NotEqual, a, b) => Ok(Value::Bool(a != b)),
 
-        (_, left, right) => Err(VmError::TypeMismatchBinary { opcode: opcode.clone(), left, right })
+        (_, left, right) => Err(VmError::InvalidBinaryOperands { op: operator_symbol(opcode), left: left.type_name(), right: right.type_name() })
     }
 }
 
 fn jump_conditional(stack: &mut Stack, index: usize, ptr: &mut usize, jump_on: bool, pop: bool) -> Result<(), VmError> {
     let b: bool = match stack.peek()? {
         Value::Bool(b) => *b,
-        v => return Err(VmError::TypeMismatchJump(v.clone())),
+        v => return Err(VmError::NonBoolCondition(v.type_name())),
     };
 
     if pop { 
