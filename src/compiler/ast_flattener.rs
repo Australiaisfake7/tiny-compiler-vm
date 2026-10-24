@@ -1319,18 +1319,26 @@ fn unify_types(left: &DataType, right: &DataType, classes: &HashMap<String, Clas
         DataType::Nullable(inner_left) => {
             match right {
                 DataType::Nullable(inner_right) => {
-                    if is_compatible(&inner_left, &inner_right, classes) {
+                    if is_compatible(inner_left, inner_right, classes) {
                         Some(DataType::Nullable(inner_left.clone()))
+                    }
+                    else if is_compatible(inner_right, inner_left, classes) {
+                        Some(DataType::Nullable(inner_right.clone()))
                     }
                     else {
                         None
                     }
                 },
-                r => if is_compatible(&inner_left, &r, classes) {
-                    Some(*inner_left.clone())
-                }
-                else {
-                    None
+                r => {
+                    if is_compatible(inner_left, r, classes) {
+                        Some(*inner_left.clone())
+                    }
+                    else if is_compatible(r, inner_left, classes) {
+                        Some(r.clone())
+                    }
+                    else {
+                        None
+                    }
                 }
             }
         },
