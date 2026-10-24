@@ -1289,7 +1289,7 @@ fn is_const_index_invalid(len: usize, index: &Box<Expression>) -> Option<i64> {
 
 fn safe_member_access(class: &Box<Expression>, member: &String, parameters: Option<&Vec<Expression>>, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &HashMap<String, ClassData>) -> Result<DataType, FlattenError> {
     let d: DataType = match flatten_expression(&class, opcodes, global_vars, vars, funcs, classes)? {
-        DataType::Nullable(inner) if matches!(*inner, DataType::Instance(_)) => *inner,
+        DataType::Nullable(inner) if matches!(*inner, DataType::Instance(_) | DataType::Array(_, _)) => *inner,
         _ => return Err(FlattenError::NotANullableInstance(class.clone()))
     };
 
