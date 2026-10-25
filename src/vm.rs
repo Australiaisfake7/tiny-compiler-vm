@@ -461,6 +461,18 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
                 *ptr = *index;
             }
         },
+        OpCode::FillArray(len) => {
+            let value: Value = stack.pop()?;
+
+            let values: Vec<Value> = if let Value::Array(a) = value {
+                std::iter::repeat_with(|| Value::Array(clone_array(a.clone()))).take(*len).collect()
+            }
+            else {
+                vec![value; *len]
+            };
+
+            stack.push(Value::Array(Rc::new(RefCell::new(values.into_boxed_slice()))))?;
+        },
     };
 
     Ok(ReturnCode::None)

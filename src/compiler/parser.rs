@@ -149,6 +149,10 @@ pub enum Expression {
         member: String,
     },
     Evaluated(DataType),
+    ArrayFill {
+        value: Box<Expression>,
+        length: i64,
+    },
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -224,6 +228,13 @@ impl fmt::Display for Expression {
                 write!(f, "?.{member}")
             },
             Expression::Evaluated(data_type) => write!(f, "<{data_type} value>"),
+            Expression::ArrayFill { value, length } => {
+                write!(f, "[")?;
+                operand(f, value, compound(value))?;
+                write!(f, ": ")?;
+                write!(f, "{}", Expression::Literal(LiteralType::Int(*length)))?;
+                write!(f, "]")
+            }
         }
     }
 }
@@ -773,6 +784,16 @@ impl Parser {
                     match self.advance() {
                         Token::Semicolon => vec.push(*self.expression()?),
                         Token::RightSquare => break,
+                        Token::Colon if vec.len() == 1 => {
+                            let len: i64 = match &*self.expression()? {
+                                Expression::Literal(LiteralType::Int(i)) if *i > 0_i64 => *i,
+                                _ => return Err(self.unexpected_previous("Positive Integer Literal")),
+                            };
+
+                            self.expect(Token::RightSquare, "']'")?;
+
+                            return Ok(Box::new(Expression::ArrayFill { value: Box::new(vec.pop().unwrap()), length: len }))
+                        }
                         _ => return Err(self.unexpected_previous("';' or ']'")),
                     }
                 }

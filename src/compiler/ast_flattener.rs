@@ -20,9 +20,9 @@ pub enum OpCode {
     Exit,
     GetArrayMember, SetArrayMember, NewArray(usize), CloneArray,
     Assert,
+    FillArray(usize),
 }
-/// A mistake in the user's program found after parsing (names, types and control flow), or an
-/// internal compiler fault. The AST carries no source positions yet, so these are not located.
+
 #[derive(Debug)]
 pub enum FlattenError {
     // Name resolution
@@ -58,6 +58,7 @@ pub enum FlattenError {
     ParameterTypeMismatch { callee: Box<Expression>, index: usize, expected: DataType, found: DataType },
     ReturnTypeMismatch { function: String, expected: DataType, found: DataType },
     ArrayElementTypeMismatch { array: Expression, index: usize },
+    ArrayFillTypeMismatch { array: Expression, expected: DataType },
     InvalidBinaryOperands { left: DataType, operator: BinaryOp, right: DataType },
     InvalidUnaryOperand { operator: UnaryOp, operand: DataType },
     NonBoolCondition,
@@ -132,6 +133,8 @@ impl FlattenError {
                 write!(f, "function '{function}' returns '{expected}', but a value of type '{found}' was returned"),
             FlattenError::ArrayElementTypeMismatch { array, index } =>
                 write!(f, "the element at index {index} of array '{array}' has an unexpected type"),
+            FlattenError::ArrayFillTypeMismatch { array, expected } =>
+                write!(f, "array '{array}' expected a value of type {expected}"),
             FlattenError::InvalidBinaryOperands { left, operator, right } =>
                 write!(f, "cannot apply '{operator}' to operands of type '{left}' and '{right}'"),
             FlattenError::InvalidUnaryOperand { operator, operand } =>
@@ -887,7 +890,8 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
         Expression::SafeAccess { class, member } => {
             safe_member_access(class, member, None, opcodes, global_vars, vars, funcs, classes)
         },
-        Expression::Evaluated(d) => Ok(d.clone())
+        Expression::Evaluated(d) => Ok(d.clone()),
+        Expression::ArrayFill { .. } =>  flatten_expression_expected(expression, opcodes, global_vars, vars, funcs, classes, None),
     }
 }
 fn flatten_expression_expected(expression: &Expression, opcodes: &mut Vec<OpCode>, global_vars: &Vec<(String, DataType)>, vars: &Vec<(String, DataType)>, funcs: &HashMap<String, (usize, DataType, Vec<DataType>)>, classes: &HashMap<String, ClassData>, expected_data_type: Option<&DataType>) -> Result<DataType, FlattenError> {
@@ -975,6 +979,39 @@ fn flatten_expression_expected(expression: &Expression, opcodes: &mut Vec<OpCode
 
             opcodes.push(OpCode::NewArray(values.len()));
             Ok(d)
+        },
+        Expression::ArrayFill { value, length } => {
+            let expected_element_type: Option<&DataType> = match expected_data_type {
+                Some(DataType::Nullable(innner_type)) => match &**innner_type {
+                    DataType::Array(d, _) => Some(&**d),
+                    _ => None,
+                },
+                Some(DataType::Array(d, _)) => Some(&**d),
+                _ => None,
+            };
+
+            let d: DataType = flatten_expression_expected(value, opcodes, global_vars, vars, funcs, classes, expected_element_type)?;
+
+            if matches!(d, DataType::Void) {
+                return Err(FlattenError::VoidValueUsed);
+            }
+            if matches!(d, DataType::Null) && expected_element_type.is_none() {
+                return Err(FlattenError::UnknownArrayLiteralType(expression.clone()));
+            }
+
+            let element_type: DataType = match expected_element_type {
+                Some(e) => {
+                    if !is_compatible(e, &d, classes) {
+                        return Err(FlattenError::ArrayFillTypeMismatch { array: expression.clone(), expected: e.clone() });
+                    }
+                    e.clone()
+                },
+                None => d,
+            };
+
+            opcodes.push(OpCode::FillArray(*length as usize));
+
+            Ok(DataType::Array(Box::new(element_type), usize::try_from(*length).unwrap()))
         },
         e => flatten_expression(e, opcodes, global_vars, vars, funcs, classes),
     }
