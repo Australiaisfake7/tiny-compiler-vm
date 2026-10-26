@@ -19,7 +19,7 @@ type ArrayData = RcMut<Box<[Value]>>;
 pub enum Value {
     Int(i64),
     Float(f64),
-    String(String),
+    String(Rc<str>),
     Bool(bool),
     #[default]
     Null,
@@ -495,7 +495,7 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, VmError> {
         .map(|v| Value::Int(v))
         .ok_or_else(|| VmError::ArithmeticOverflow { left: x, op: operator_symbol(opcode), right: y }),
         (OpCode::Add, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x + y)),
-        (OpCode::Add, Value::String(x), Value::String(y)) => Ok(Value::String(x + &y)),
+        (OpCode::Add, Value::String(x), Value::String(y)) => Ok(Value::String(Rc::from([&*x, &*y].concat().as_str()))),
 
         (OpCode::Subtract, Value::Int(x), Value::Int(y)) => x.checked_sub(y)
         .map(|v| Value::Int(v))

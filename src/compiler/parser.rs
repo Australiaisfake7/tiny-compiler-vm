@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::lexer::{Token, DataType};
 use crate::error::Span;
-use std::convert::TryFrom;
-use std::fmt;
+use std::{convert::TryFrom, fmt, rc::Rc};
 
 #[derive(Debug)]
 pub enum ParseErrorKind {
@@ -85,7 +84,7 @@ impl fmt::Display for UnaryOp {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LiteralType {
-    String(String),
+    String(Rc<str>),
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -769,7 +768,7 @@ impl Parser {
             Token::Bool(v) => Ok(Box::new(Expression::Literal(LiteralType::Bool(*v)))),
             Token::Int(v) => Ok(Box::new(Expression::Literal(LiteralType::Int(*v)))),
             Token::Float(v) => Ok(Box::new(Expression::Literal(LiteralType::Float(*v)))),
-            Token::String(v) => Ok(Box::new(Expression::Literal(LiteralType::String(v.clone())))),
+            Token::String(v) => Ok(Box::new(Expression::Literal(LiteralType::String(Rc::from(v.as_str()))))),
             Token::Null => Ok(Box::new(Expression::Literal(LiteralType::Null))),
             Token::Identifier(name) => Ok(Box::new(Expression::Variable(name.clone()))),
             Token::LeftBracket => {
