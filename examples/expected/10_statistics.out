@@ -1,0 +1,13 @@
+Enter numbers, one per line. Finish with an empty line.
+count:
+4.0
+sum:
+25.5
+average:
+6.375
+smallest:
+-2.0
+largest:
+15.0
+skipped:
+1

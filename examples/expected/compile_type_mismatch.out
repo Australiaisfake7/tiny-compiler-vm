@@ -1,0 +1,1 @@
+semantic error: 'age' is declared as 'int', but assigned a value of type 'string'
