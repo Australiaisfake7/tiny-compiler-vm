@@ -3,6 +3,7 @@ use std::fmt;
 use serde::{Serialize, Deserialize};
 
 use crate::compiler::{lexer::DataType, parser::{BinaryOp, Expression, FunctionData, LiteralType, Statement, UnaryOp}};
+use crate::builtin::Builtin;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OpCode {
@@ -21,6 +22,7 @@ pub enum OpCode {
     GetArrayMember, SetArrayMember, NewArray(usize), CloneArray,
     Assert,
     FillArray(usize),
+    Input, ParseInt, ParseFloat,
 }
 
 #[derive(Debug)]
@@ -756,6 +758,22 @@ fn flatten_expression(expression: &Expression, opcodes: &mut Vec<OpCode>, global
                         opcodes.push(OpCode::NewInstance(c.id));
                         opcodes.push(OpCode::Call { index: c.constructor, parameters: parameters.len() + 1 });
                         Ok(DataType::Instance(i.clone()))
+                    }
+                    else if let Some(builtin) = Builtin::lookup(i) {
+                        let (p, r) = builtin.signature();
+                        
+                        if p.len() != parameters.len() {
+                            return Err(FlattenError::ParameterCountMismatch { callee: callee.clone(), expected: p.len(), found: parameters.len() });
+                        }
+                        for (i, e) in parameters.iter().enumerate() {
+                            let d: DataType = flatten_expression_expected(e, opcodes, global_vars, vars, funcs, classes, Some(p.get(i).unwrap()))?;
+
+                            if !is_compatible(p.get(i).unwrap(), &d, classes) {
+                                return Err(FlattenError::ParameterTypeMismatch { callee: callee.clone(), index: i, expected: p.get(i).unwrap().clone(), found: d });
+                            }
+                        }
+                        builtin.call(opcodes);
+                        Ok(r)
                     }
                     else {
                         return Err(FlattenError::UndeclaredFunction(i.clone()));

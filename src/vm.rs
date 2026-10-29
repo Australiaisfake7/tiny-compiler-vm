@@ -1,5 +1,5 @@
 use crate::{STACK_SIZE, compiler::{CompiledData, OpCode, LiteralType}};
-use std::{cell::RefCell, rc::Rc, fmt};
+use std::{cell::RefCell, fmt, io::{self, BufRead}, rc::Rc};
 
 #[derive(PartialEq)]
 enum ReturnCode {
@@ -42,12 +42,6 @@ impl PartialEq for Value {
     }
 }
 
-/// A failure while running a program.
-///
-/// A program that passed the compiler can still hit the first group of variants (arithmetic,
-/// bounds checks, null assertions). `InvalidBytecode` means the bytecode itself is malformed,
-/// which a compiler bug or a damaged `.tb` file can cause. Type names (`&'static str`) are
-/// carried instead of values so the error does not keep program data alive.
 #[derive(Debug)]
 pub enum VmError {
     StackOverflow,
@@ -63,6 +57,7 @@ pub enum VmError {
     NotAnInstance(&'static str),
     NotAnArray(&'static str),
     InvalidIndexType(&'static str),
+    InputFailed(io::Error),
     InvalidBytecode(InvalidBytecode),
 }
 
@@ -77,6 +72,7 @@ pub enum InvalidBytecode {
     ClassOutOfBounds(usize),
     VtableSlotOutOfBounds { class: usize, slot: usize },
     MemberOutOfBounds { class: usize, member: usize },
+    UnexpectedOperand { opcode: &'static str, expected: &'static str, found: &'static str },
 }
 
 impl fmt::Display for InvalidBytecode {
@@ -91,6 +87,7 @@ impl fmt::Display for InvalidBytecode {
             InvalidBytecode::ClassOutOfBounds(class) => write!(f, "class {class} does not exist"),
             InvalidBytecode::VtableSlotOutOfBounds { class, slot } => write!(f, "class {class} has no vtable slot {slot}"),
             InvalidBytecode::MemberOutOfBounds { class, member } => write!(f, "an instance of class {class} has no member {member}"),
+            InvalidBytecode::UnexpectedOperand { opcode, expected, found } => write!(f, "'{opcode}' expected an operand of type '{expected}', found '{found}'"),
         }
     }
 }
@@ -113,6 +110,7 @@ impl fmt::Display for VmError {
             VmError::NotAnInstance(found) => write!(f, "cannot access a member of a value of type '{found}'"),
             VmError::NotAnArray(found) => write!(f, "cannot use a value of type '{found}' as an array"),
             VmError::InvalidIndexType(found) => write!(f, "array index must be of type 'int', found '{found}'"),
+            VmError::InputFailed(error) => write!(f, "cannot read from standard input: {error}"),
             VmError::InvalidBytecode(invalid) => write!(f, "invalid bytecode: {invalid}"),
         }
     }
@@ -127,7 +125,6 @@ impl From<InvalidBytecode> for VmError {
 }
 
 impl Value {
-    /// The name of this value's type as it is written in source code.
     fn type_name(&self) -> &'static str {
         match self {
             Value::Int(_) => "int",
@@ -141,7 +138,6 @@ impl Value {
     }
 }
 
-/// The source symbol of an arithmetic, comparison or logical opcode, for error messages.
 fn operator_symbol(opcode: &OpCode) -> &'static str {
     match opcode {
         OpCode::LNot => "!",
@@ -473,9 +469,63 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
 
             stack.push(Value::Array(Rc::new(RefCell::new(values.into_boxed_slice()))))?;
         },
+        OpCode::Input => {
+            let line: Value = read_input_line(&mut io::stdin().lock())?;
+            stack.push(line)?;
+        },
+        OpCode::ParseInt => {
+            let result: Value = match pop_parse_operand(stack, "ParseInt")? {
+                Some(text) => parse_int(&text),
+                None => Value::Null,
+            };
+            stack.push(result)?;
+        },
+        OpCode::ParseFloat => {
+            let result: Value = match pop_parse_operand(stack, "ParseFloat")? {
+                Some(text) => parse_float(&text),
+                None => Value::Null,
+            };
+            stack.push(result)?;
+        },
     };
 
     Ok(ReturnCode::None)
+}
+
+fn read_input_line(reader: &mut impl BufRead) -> Result<Value, VmError> {
+    let mut bytes: Vec<u8> = Vec::new();
+    let bytes_read: usize = reader.read_until(b'\n', &mut bytes).map_err(VmError::InputFailed)?;
+
+    if bytes_read == 0 {
+        return Ok(Value::Null);
+    }
+    if bytes.last() == Some(&b'\n') {
+        bytes.pop();
+        if bytes.last() == Some(&b'\r') {
+            bytes.pop();
+        }
+    }
+
+    Ok(Value::String(String::from_utf8_lossy(&bytes).into()))
+}
+
+fn pop_parse_operand(stack: &mut Stack, opcode: &'static str) -> Result<Option<Rc<str>>, VmError> {
+    match stack.pop()? {
+        Value::String(text) => Ok(Some(text)),
+        Value::Null => Ok(None),
+        other => Err(InvalidBytecode::UnexpectedOperand { opcode, expected: "string?", found: other.type_name() }.into()),
+    }
+}
+
+fn parse_int(text: &str) -> Value {
+    text.parse::<i64>().map_or(Value::Null, Value::Int)
+}
+
+fn parse_float(text: &str) -> Value {
+    match text.parse::<f64>() {
+        Ok(float) if float.is_finite() => Value::Float(float),
+        _ => Value::Null,
+    }
 }
 
 fn apply_unary(opcode: &OpCode, a: Value) -> Result<Value, VmError> {

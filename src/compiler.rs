@@ -3,7 +3,7 @@ use std::fmt;
 use parser::Statement;
 use lexer::Token;
 pub use ast_flattener::{CompiledData, FlattenError, OpCode};
-pub use lexer::LexError;
+pub use lexer::{LexError, DataType};
 pub use parser::{LiteralType, ParseError};
 
 mod lexer;

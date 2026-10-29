@@ -1,6 +1,7 @@
 mod compiler;
 mod error;
 mod vm;
+mod builtin;
 
 use std::fs::File;
 use std::path::Path;
