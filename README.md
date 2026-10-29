@@ -34,10 +34,10 @@ cargo build --release
 
 ```bash
 # Compile source
-cargo run --release -- compile <target file>.tl
+cargo run --release -- compile examples\01_hello.tl
 
 # Run compiled bytecode
-cargo run --release -- execute <target file>.tb
+cargo run --release -- execute examples\01_hello.tb
 ```
 
 ## How It Works
