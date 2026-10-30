@@ -11,6 +11,7 @@ pub enum ParseErrorKind {
     InvalidAssignmentTarget(Box<Expression>),
     VoidNotAllowed,
     InvalidArraySize(i64),
+    DimensionAfterNullable,
 }
 
 impl fmt::Display for ParseErrorKind {
@@ -23,6 +24,8 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::VoidNotAllowed => write!(f, "'void' is not allowed here"),
             ParseErrorKind::InvalidArraySize(size) =>
                 write!(f, "array size must be at least 1, found {size}"),
+            ParseErrorKind::DimensionAfterNullable =>
+                write!(f, "an array dimension cannot follow '?' after another dimension; put '?' after the last dimension"),
         }
     }
 }
@@ -819,14 +822,24 @@ impl Parser {
             _ => return Err(self.unexpected_previous("a data type")),
         };
 
+        let mut dimensions: Vec<usize> = Vec::new();
+        let mut nullable_array: bool = false;
+
         loop {
             if self.match_advance(&[Token::Question]) {
+                nullable_array |= !dimensions.is_empty();
+                d = wrap_in_arrays(d, &mut dimensions);
+
                 if d == DataType::Void {
                     return Err(self.error_previous(ParseErrorKind::VoidNotAllowed));
                 }
                 d = DataType::Nullable(Box::new(d));
             }
             else if self.match_advance(&[Token::LeftSquare]) {
+                if nullable_array {
+                    return Err(self.error_previous(ParseErrorKind::DimensionAfterNullable));
+                }
+
                 let len: usize = match self.advance() {
                     Token::Int(l) => {
                         let size: i64 = *l;
@@ -838,18 +851,27 @@ impl Parser {
 
                 self.expect(Token::RightSquare, "']'")?;
 
-                d = DataType::Array(Box::new(d), len);
+                dimensions.push(len);
             }
             else {
                 break;
             }
         }
 
+        d = wrap_in_arrays(d, &mut dimensions);
+
         Ok(d)
     }
 }
 
 
+
+fn wrap_in_arrays(mut element: DataType, dimensions: &mut Vec<usize>) -> DataType {
+    for len in dimensions.drain(..).rev() {
+        element = DataType::Array(Box::new(element), len);
+    }
+    element
+}
 
 fn starts_expression(token: &Token) -> bool {
     matches!(token, Token::Bool(_) | Token::Int(_) | Token::Float(_) | Token::String(_) | Token::Null | Token::Identifier(_) | Token::LeftBracket | Token::LNot | Token::Minus | Token::LeftSquare)

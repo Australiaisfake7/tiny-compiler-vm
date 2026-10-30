@@ -39,12 +39,25 @@ impl fmt::Display for DataType {
             DataType::Void => write!(f, "void"),
             DataType::Nullable(inner) => write!(f, "{inner}?"),
             DataType::Instance(name) => write!(f, "{name}"),
-            DataType::Array(inner, len) => write!(f, "{inner}[{len}]"),
+            DataType::Array(..) => {
+                let mut element: &DataType = self;
+                let mut dimensions: Vec<usize> = Vec::new();
+
+                while let DataType::Array(inner, len) = element {
+                    dimensions.push(*len);
+                    element = inner;
+                }
+
+                write!(f, "{element}")?;
+                for len in dimensions {
+                    write!(f, "[{len}]")?;
+                }
+                Ok(())
+            },
         }
     }
 }
 
-/// Describes a token the way it should appear in an error message ("found ...").
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let symbol: &str = match self {
@@ -320,8 +333,6 @@ impl<'a> Scanner<'a> {
     }
 }
 
-/// Splits source text into tokens. `spans[i]` is where `tokens[i]` starts; the last token is
-/// always `Token::EOF`.
 pub fn lex_chars(chars: Chars<'_>) -> Result<(Vec<Token>, Vec<Span>), LexError> {
     let mut scanner: Scanner = Scanner::from_source(chars);
     let mut tokens: Vec<Token> = Vec::new();
