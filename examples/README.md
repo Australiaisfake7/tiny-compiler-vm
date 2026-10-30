@@ -110,7 +110,7 @@ Built-ins: `input()` returns `string?`, `parseInt(string?)` returns `int?`,
   fields afterwards or give them initial values in the class body.
 - Arrays and objects are shared when assigned, not copied. Array equality compares
   contents, object equality compares identity.
-- `int[2][3]` is read from the inside out: 3 rows of 2 elements, indexed `[row][column]`.
+- The first dimension is the outermost: `int[3][2]` is 3 rows of 2 elements, indexed `[row][column]`.
 - Functions and classes are declared at the top level, and a function can only call
   functions declared above it (or itself).
 - A non-nullable variable must be given a value. Only `T?` variables can be declared bare.

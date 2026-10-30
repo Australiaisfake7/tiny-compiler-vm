@@ -31,9 +31,9 @@ for (int i = 0; i < 5; i = i + 1) {
 print total;
 
 // ---- Arrays of arrays ----------------------------------------------------------------
-// The type is read from the inside out: int[2][3] is an array of 3 rows,
+// The first dimension is the outermost: int[3][2] is an array of 3 rows,
 // and each row is an int[2]. The first index picks the row.
-int[2][3] grid = [[0: 2]: 3];
+int[3][2] grid = [[0: 2]: 3];
 grid[0][0] = 1;
 grid[1][1] = 5;
 grid[2][0] = 9;
