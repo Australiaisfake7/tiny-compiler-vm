@@ -318,12 +318,6 @@ int? n = parseInt(input());
 print n ?? -1;
 ```
 
-The plan is:
-
-* End-to-end tests that compile and run each program in `examples/` and compare the output with what is expected
-* One test per error stage, checking the exact message shown in [Error messages](#error-messages)
-* Unit tests for the lexer and parser
-
 ## Limitations
 
 * No mutual recursion between functions, and no classes that refer to each other. Self-recursion works.
