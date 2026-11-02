@@ -145,6 +145,7 @@ fn operator_symbol(opcode: &OpCode) -> &'static str {
         OpCode::Add => "+",
         OpCode::Multiply => "*",
         OpCode::Divide => "/",
+        OpCode::Mod => "%",
         OpCode::Equal => "==",
         OpCode::NotEqual => "!=",
         OpCode::Less => "<",
@@ -289,8 +290,8 @@ fn execute_opcode(opcode: &OpCode, stack: &mut Stack, ptr: &mut usize, global_va
             let a: Value = stack.pop()?;
             let result: Value = apply_unary(opcode, a)?;
             stack.push(result)?;
-        }
-        OpCode::Add | OpCode::Subtract | OpCode::Multiply | OpCode::Divide
+        },
+        OpCode::Add | OpCode::Subtract | OpCode::Multiply | OpCode::Divide | OpCode::Mod
         | OpCode::Equal | OpCode::NotEqual
         | OpCode::Less | OpCode::LessEqual | OpCode::Greater | OpCode::GreaterEqual => {
             let b: Value = stack.pop()?;
@@ -562,6 +563,9 @@ fn apply_binary(opcode: &OpCode, a: Value, b: Value) -> Result<Value, VmError> {
         .map(|v| Value::Int(v))
         .ok_or_else(|| VmError::ArithmeticOverflow { left: x, op: operator_symbol(opcode), right: y }),
         (OpCode::Divide, Value::Float(x), Value::Float(y)) => Ok(Value::Float(x / y)),
+
+        (OpCode::Mod, Value::Int(_), Value::Int(0)) => Err(VmError::DivisionByZero),
+        (OpCode::Mod, Value::Int(x), Value::Int(y)) => Ok(Value::Int(x.wrapping_rem(y))),
 
         (OpCode::Less, Value::Int(x), Value::Int(y)) => Ok(Value::Bool(x < y)),
         (OpCode::Less, Value::Float(x), Value::Float(y)) => Ok(Value::Bool(x < y)),

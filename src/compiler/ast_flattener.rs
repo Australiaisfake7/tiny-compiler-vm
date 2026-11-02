@@ -8,7 +8,7 @@ use crate::builtin::Builtin;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OpCode {
     PushConst(LiteralType), Pop(usize),
-    LNot, Negate, Add, Subtract, Multiply, Divide,
+    LNot, Negate, Add, Subtract, Multiply, Divide, Mod,
     Equal, Greater, GreaterEqual, Less, LessEqual, NotEqual,
     JumpIfTrue { index: usize, pop: bool }, JumpIfFalse { index: usize, pop: bool }, Jump(usize),
     JumpIfNull(usize), JumpIfNotNull(usize),
@@ -1062,6 +1062,7 @@ fn flatten_binary(left: &Box<Expression>, operator: &BinaryOp, right: &Box<Expre
         BinaryOp::Subtract => normal_binary(left, right, OpCode::Subtract, opcodes, global_vars, vars, funcs, classes)?,
         BinaryOp::Multiply => normal_binary(left, right, OpCode::Multiply, opcodes, global_vars, vars, funcs, classes)?,
         BinaryOp::Divide => normal_binary(left, right, OpCode::Divide, opcodes, global_vars, vars, funcs, classes)?,
+        BinaryOp::Modulo => normal_binary(left, right, OpCode::Mod, opcodes, global_vars, vars, funcs, classes)?,
         BinaryOp::Equal => normal_binary(left, right, OpCode::Equal, opcodes, global_vars, vars, funcs, classes)?,
         BinaryOp::Greater => normal_binary(left, right, OpCode::Greater, opcodes, global_vars, vars, funcs, classes)?,
         BinaryOp::GreaterEqual => normal_binary(left, right, OpCode::GreaterEqual, opcodes, global_vars, vars, funcs, classes)?,
@@ -1206,6 +1207,7 @@ impl<'a> TryFrom<&'a OpCode> for BinaryOp {
             OpCode::Subtract => Ok(BinaryOp::Subtract),
             OpCode::Multiply => Ok(BinaryOp::Multiply),
             OpCode::Divide => Ok(BinaryOp::Divide),
+            OpCode::Mod => Ok(BinaryOp::Modulo),
             OpCode::Equal => Ok(BinaryOp::Equal),
             OpCode::NotEqual => Ok(BinaryOp::NotEqual),
             OpCode::Less => Ok(BinaryOp::Less),
@@ -1282,7 +1284,7 @@ fn get_static_func<'a>(mut class: &'a str, member: &str, classes: &'a HashMap<St
 
 fn get_binary_type(left: &DataType, operator: &BinaryOp, right: &DataType, classes: &HashMap<String, ClassData>) -> Option<DataType> {
     match (left, operator, right) {
-        (DataType::Int, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide, DataType::Int) => Some(DataType::Int),
+        (DataType::Int, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide | BinaryOp::Modulo, DataType::Int) => Some(DataType::Int),
         (DataType::Float, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide, DataType::Float) => Some(DataType::Float),
         (DataType::String, BinaryOp::Add, DataType::String) => Some(DataType::String),
 

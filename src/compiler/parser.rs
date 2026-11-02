@@ -50,6 +50,7 @@ pub enum BinaryOp {
     Subtract,
     Multiply,
     Divide,
+    Modulo,
     Equal,
     NotEqual,
     Less,
@@ -69,7 +70,7 @@ pub enum UnaryOp {
 impl fmt::Display for BinaryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", match self {
-            BinaryOp::Add => "+", BinaryOp::Subtract => "-", BinaryOp::Multiply => "*", BinaryOp::Divide => "/",
+            BinaryOp::Add => "+", BinaryOp::Subtract => "-", BinaryOp::Multiply => "*", BinaryOp::Divide => "/", BinaryOp::Modulo => "%",
             BinaryOp::Equal => "==", BinaryOp::NotEqual => "!=",
             BinaryOp::Less => "<", BinaryOp::LessEqual => "<=", BinaryOp::Greater => ">", BinaryOp::GreaterEqual => ">=",
             BinaryOp::LAnd => "&&", BinaryOp::LOr => "||", BinaryOp::Coalesce => "??",
@@ -270,6 +271,7 @@ impl TryFrom<&Token> for BinaryOp {
             Token::Minus => Ok(BinaryOp::Subtract),
             Token::Asterisk => Ok(BinaryOp::Multiply),
             Token::Slash => Ok(BinaryOp::Divide),
+            Token::Percent => Ok(BinaryOp::Modulo),
             Token::Equal => Ok(BinaryOp::Equal),
             Token::NotEqual => Ok(BinaryOp::NotEqual),
             Token::Less => Ok(BinaryOp::Less),
@@ -704,7 +706,7 @@ impl Parser {
         self.binary_chain(&[Token::Plus, Token::Minus], Self::factor)
     }
     fn factor(&mut self) -> Result<Box<Expression>, ParseError> {
-        self.binary_chain(&[Token::Asterisk, Token::Slash], Self::unary)
+        self.binary_chain(&[Token::Asterisk, Token::Slash, Token::Percent], Self::unary)
     }
     fn unary(&mut self) -> Result<Box<Expression>, ParseError> {
         if self.match_advance(&[Token::LNot, Token::Minus]) {

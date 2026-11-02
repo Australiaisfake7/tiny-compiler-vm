@@ -6,7 +6,7 @@ use crate::error::Span;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     LeftBracket, RightBracket, LeftBrace, RightBrace, LeftSquare, RightSquare,
-    Dot, Minus, Plus, Slash, Asterisk, Semicolon, Colon, Question, QuestionQuestion, QuestionDot,
+    Dot, Minus, Plus, Slash, Asterisk, Percent, Semicolon, Colon, Question, QuestionQuestion, QuestionDot,
 
     Identifier(String), String(String), Int(i64), Float(f64), Bool(bool),
 
@@ -65,7 +65,8 @@ impl fmt::Display for Token {
             Token::LeftBrace => "{", Token::RightBrace => "}",
             Token::LeftSquare => "[", Token::RightSquare => "]",
             Token::Dot => ".", Token::Minus => "-", Token::Plus => "+", Token::Slash => "/",
-            Token::Asterisk => "*", Token::Semicolon => ";", Token::Colon => ":",
+            Token::Asterisk => "*", Token::Percent => "%",
+            Token::Semicolon => ";", Token::Colon => ":",
             Token::Question => "?", Token::QuestionQuestion => "??", Token::QuestionDot => "?.",
             Token::Assign => "=", Token::Equal => "==", Token::NotEqual => "!=",
             Token::Less => "<", Token::Greater => ">", Token::LessEqual => "<=", Token::GreaterEqual => ">=",
@@ -195,6 +196,7 @@ impl<'a> Scanner<'a> {
             Some('-') => Ok(Token::Minus),
             Some('+') => Ok(Token::Plus),
             Some('*') => Ok(Token::Asterisk),
+            Some('%') => Ok(Token::Percent),
             Some(';') => Ok(Token::Semicolon),
             Some(':') => Ok(Token::Colon),
             Some('?') => {
