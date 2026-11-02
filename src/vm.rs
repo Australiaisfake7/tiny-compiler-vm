@@ -1,4 +1,4 @@
-use crate::{STACK_SIZE, compiler::{CompiledData, OpCode, LiteralType}};
+use crate::compiler::{CompiledData, OpCode, LiteralType};
 use std::{cell::RefCell, fmt, io::{self, BufRead}, rc::Rc};
 
 #[derive(PartialEq)]
@@ -180,8 +180,8 @@ struct Stack {
 }
 
 impl Stack {
-    fn new() -> Self {
-        Stack { data: vec![Value::default(); STACK_SIZE].into_boxed_slice(), size: 0, base: 0 }
+    fn new(max_size: usize) -> Self {
+        Stack { data: vec![Value::default(); max_size].into_boxed_slice(), size: 0, base: 0 }
     }
     
     fn pop(&mut self) -> Result<Value, VmError> {
@@ -245,15 +245,11 @@ struct CallStack {
 }
 
 impl CallStack {
-    fn new() -> Self {
-        CallStack { data: vec![(0, 0); 512].into_boxed_slice(), size: 0 }
+    fn new(max_size: usize) -> Self {
+        CallStack { data: vec![(0, 0); max_size].into_boxed_slice(), size: 0 }
     }
     fn push(&mut self, value: (usize, usize)) -> Result<(), VmError> {
-        if self.size >= 512 {
-            return Err(VmError::CallStackOverflow);
-        }
-
-        *self.data.get_mut(self.size).unwrap() = value;
+        *self.data.get_mut(self.size).ok_or(VmError::CallStackOverflow)? = value;
         self.size += 1;
 
         Ok(())
@@ -268,11 +264,11 @@ impl CallStack {
     }
 }
 
-pub fn execute(mut data: CompiledData) -> Result<(), VmError> {
-    let mut stack: Stack = Stack::new();
+pub fn execute(mut data: CompiledData, stack_size: usize, call_stack_size: usize) -> Result<(), VmError> {
+    let mut stack: Stack = Stack::new(stack_size);
     let mut ptr: usize = 0;
     let mut global_vars: Vec<Value> = Vec::new();
-    let mut call_stack: CallStack = CallStack::new();
+    let mut call_stack: CallStack = CallStack::new(call_stack_size);
     loop {
         let opcode: &OpCode = data.opcodes.get(ptr).ok_or(InvalidBytecode::JumpOutOfBounds(ptr))?;
         ptr += 1;
