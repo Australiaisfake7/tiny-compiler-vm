@@ -145,9 +145,14 @@ cargo run --release -- compile examples/01_hello.tl
 
 # Run compiled bytecode
 cargo run --release -- execute examples/01_hello.tb
+
+# Run with larger stack size
+cargo run --release -- execute examples/01_hello.tb --stack-size 16384
 ```
 
-Compiling `foo.tl` writes `foo.tb` next to it. Each mode checks the file extension (`.tl` to compile, `.tb` to execute) and reports a usage error if it does not match.
+Compiling `foo.tl` writes `foo.tb` next to it. Each subcommand checks the file extension (`.tl` for `compile`, `.tb` for `execute`) and reports a usage error if it does not match.
+
+`--stack-size` (or `-s`) sets how many values the operand stack can hold at runtime, between 2 and 1,048,576 (default 4,096). It only applies to `execute`, so it is rejected if used with `compile`. The call stack is sized at half the operand stack, so the default allows 2,048 nested calls.
 
 ## How It Works
 
@@ -390,7 +395,7 @@ Parsing does not trim whitespace, so `parseInt(" 5")` is `null`, while a leading
 * Functions and classes cannot be declared inside another scope.
 * Array sizes are written as integer literals, so they cannot depend on a variable.
 * Semantic and runtime errors have no line and column.
-* The operand stack holds 1,024 values and calls can nest 512 deep, so very deep recursion ends with a runtime error.
+* The operand stack holds 4,096 values by default and the call stack holds half as many frames (2,048 nested calls). Both can be raised with `--stack-size` (up to 1,048,576 values), but very deep recursion still ends with a runtime error.
 * Heap values are reference counted, so reference cycles between objects are never freed.
 * Freeing a very long chain of objects (for example a linked list of several hundred thousand nodes) can overflow the native stack of the VM and abort it, because freeing happens recursively.
 * Array sizes are not limited, and an array too large for memory aborts the VM with an out-of-memory failure instead of a runtime error.
